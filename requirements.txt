@@ -1,0 +1,5 @@
+opencv-python>=4.8
+numpy>=1.24
+
+# volitelne, jen pro webcam_demo.py --voice
+pyttsx3>=2.90
