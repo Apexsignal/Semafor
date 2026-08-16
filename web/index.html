@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="cs">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Semafor asistent</title>
+<style>
+  html, body { margin: 0; padding: 0; background: #111; color: #eee; font-family: system-ui, sans-serif; }
+  #wrap { max-width: 480px; margin: 0 auto; padding: 12px; box-sizing: border-box; }
+  .video-box { position: relative; width: 100%; aspect-ratio: 3 / 4; background: #000; border-radius: 12px; overflow: hidden; }
+  video, canvas#overlay { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+  canvas#overlay { pointer-events: none; }
+  #stav { font-size: 1.6rem; font-weight: 700; text-align: center; margin: 14px 0 4px; min-height: 2.2em; }
+  #stav.cervena { color: #ff4d4d; }
+  #stav.oranzova { color: #ffa500; }
+  #stav.zelena { color: #37d67a; }
+  #stav.zadna { color: #888; }
+  #info { font-size: 0.85rem; color: #999; text-align: center; line-height: 1.5; }
+  #banner { font-size: 0.8rem; color: #ffcc66; text-align: center; min-height: 1.4em; margin-top: 4px; }
+  label { display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: 10px; font-size: 0.9rem; }
+  button { display: block; margin: 14px auto 0; padding: 10px 20px; font-size: 1rem; border-radius: 8px; border: none; background: #2d7dfb; color: white; }
+</style>
+</head>
+<body>
+<div id="wrap">
+  <div class="video-box">
+    <video id="video" playsinline autoplay muted></video>
+    <canvas id="overlay"></canvas>
+  </div>
+  <div id="stav" class="zadna">-</div>
+  <div id="banner"></div>
+  <div id="info">
+    Rychlost: <span id="rychlost">--</span> km/h &middot;
+    stav detekce: <span id="detekce-stav">cekam na kameru</span>
+  </div>
+  <label><input type="checkbox" id="vzdy-detekovat" /> detekovat i za jizdy / bez GPS</label>
+  <button id="start">Spustit kameru</button>
+</div>
+
+<!-- Prototype uses the official OpenCV.js build from a CDN - fine for a
+     GitHub Pages research prototype (not an embedded/offline Artifact). -->
+<script async src="https://docs.opencv.org/4.x/opencv.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

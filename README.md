@@ -13,6 +13,8 @@ hardware (kamera, mikrokontroler, BT/WiFi modul) zatim nikde neni, viz
 
 ## Co to umi
 
+### Desktop / Python PoC
+
 - `detector.py` — jadro: z jednoho snimku (BGR obrazek z OpenCV) najde
   kruhove kandidaty na svitilny (Houghova transformace) a pro kazdy zmeri,
   jak moc odpovida cervene/oranzove/zelene barve v HSV. Vrati nejsilnejsi
@@ -25,6 +27,40 @@ hardware (kamera, mikrokontroler, BT/WiFi modul) zatim nikde neni, viz
 - `webcam_demo.py` — ziva ukazka: cte webkameru nebo video soubor, kresli
   detekci do obrazu a (volitelne, `--voice`) hlasi zmenu stavu nahlas
   pres `pyttsx3` (offline TTS, zadne API klice).
+
+### `web/` — mobilni prototyp (telefon misto vyhrazeneho hardwaru)
+
+Napad: zadny samostatny kamerovy modul, jen telefon v drzaku na palubce
+se zadnim fotakem smerem ven pres sklo — presne jak funguji bezne dashcam
+appky. `web/index.html` + `web/app.js` je samostatna webova stranka (zadny
+build krok), co:
+
+- pres `getUserMedia` vezme zadni kameru telefonu primo v prohlizeci,
+- pres `Geolocation` API cte rychlost auta a detekci **spousti jen kdyz
+  auto stoji** (rychlost pod ~5 km/h) — presne scenar "cekam na semafor",
+  setri to baterku/vykon kdyz se jede. Kdyz GPS rychlost neni k dispozici
+  (indoor test, chybejici fix), detekuje se poradne s upozornenim v UI;
+  jde i rucne vynutit zaskrtavatkem "detekovat i za jizdy / bez GPS".
+- pouzitou stejnou HSV + Houghovy-kruznice logiku jako `detector.py`, jen
+  prepsanou do JS pres [OpenCV.js](https://docs.opencv.org/4.x/opencv.js)
+  (nacita se z oficialniho CDN, zadny build/npm potreba),
+  aby oba prototypy davaly srovnatelne vysledky,
+- hlasi zmenu stavu hlasem pres `SpeechSynthesis` (`cs-CZ`), stejny
+  princip debounce jako `webcam_demo.py`.
+
+Overeno end-to-end v headless Chromiu (Playwright + falesna kamera
+napojena na synteticke vzorky z `generate_samples.py`) — vsechny tri
+barvy spravne rozpoznany primo pres getUserMedia+OpenCV.js pipeline,
+ne jen v Pythonu.
+
+**Jak to spustit na skutecnem telefonu:** stranka potrebuje HTTPS (kamera
+v prohlizeci na file:// nebo http:// bezne nejde), takze `web/` je urcene
+k nahrani na GitHub Pages (nebo jiny staticky HTTPS hosting) a otevreni
+odkazu primo v mobilnim prohlizeci. Zadna instalace, zadny app store.
+**Znamy limit:** prohlizec nejde nechat bezet na pozadi/pri zamknute
+obrazovce (na rozdil od nativni appky) — displej tedy musi svitit
+s otevrenou strankou. Pro overeni samotneho napadu to staci; beh na
+pozadi by uz vyzadoval skutecnou Android/iOS appku.
 
 ## Jak spustit
 
@@ -41,6 +77,14 @@ python webcam_demo.py
 
 # ziva ukazka z nahraneho videa + hlasove hlaseni
 python webcam_demo.py cesta/k/videu.mp4 --voice
+```
+
+Web verze (lokalne na pocitaci, jen pro vyvoj — kamera na mobilu potrebuje
+HTTPS, viz sekce nize):
+
+```bash
+cd web && python3 -m http.server 8000
+# otevrit http://localhost:8000 v prohlizeci na pocitaci s webkamerou
 ```
 
 ## Jak algoritmus funguje
