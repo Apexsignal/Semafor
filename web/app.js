@@ -28,28 +28,60 @@ const CZ_LABELS = {
 };
 function czLabel(cls) { return CZ_LABELS[cls] || cls; }
 
-/* ---------- Named colors (Czech) for nearest-color lookup ---------- */
-const NAMED_COLORS = [
-  { name: "černá", rgb: [15, 15, 15] },
-  { name: "bílá", rgb: [245, 245, 245] },
-  { name: "šedá", rgb: [130, 130, 130] },
-  { name: "červená", rgb: [214, 40, 40] },
-  { name: "oranžová", rgb: [235, 130, 30] },
-  { name: "žlutá", rgb: [235, 210, 40] },
-  { name: "zelená", rgb: [45, 165, 70] },
-  { name: "tyrkysová", rgb: [35, 185, 185] },
-  { name: "modrá", rgb: [35, 95, 215] },
-  { name: "fialová", rgb: [140, 65, 195] },
-  { name: "růžová", rgb: [225, 110, 170] },
-  { name: "hnědá", rgb: [110, 70, 40] },
-  { name: "béžová", rgb: [215, 195, 165] },
+/* ---------- Named colors (Czech) for nearest-color lookup ----------
+ * Matching happens in HSL, not raw RGB: a dim/warm-tinted grey and a
+ * saturated brown can sit close together in RGB space but are obviously
+ * different colors to a person, because RGB conflates hue with lightness.
+ * Low-saturation samples are classified as black/white/grey directly
+ * (an "achromatic short-circuit") before any hue comparison runs. */
+const NAMED_COLORS_HSL = [
+  { name: "červená", h: 5, s: 0.75, l: 0.45 },
+  { name: "oranžová", h: 28, s: 0.80, l: 0.52 },
+  { name: "žlutá", h: 52, s: 0.75, l: 0.60 },
+  { name: "zelená", h: 130, s: 0.55, l: 0.42 },
+  { name: "tyrkysová", h: 178, s: 0.55, l: 0.45 },
+  { name: "modrá", h: 215, s: 0.65, l: 0.48 },
+  { name: "fialová", h: 275, s: 0.50, l: 0.50 },
+  { name: "růžová", h: 335, s: 0.55, l: 0.72 },
+  { name: "hnědá", h: 25, s: 0.45, l: 0.28 },
+  { name: "béžová", h: 35, s: 0.35, l: 0.82 },
 ];
+
+function rgbToHsl(r, g, b) {
+  r /= 255; g /= 255; b /= 255;
+  const max = Math.max(r, g, b), min = Math.min(r, g, b);
+  const l = (max + min) / 2;
+  const d = max - min;
+  if (d === 0) return { h: 0, s: 0, l };
+  const s = d / (1 - Math.abs(2 * l - 1));
+  let h;
+  if (max === r) h = 60 * (((g - b) / d) % 6);
+  else if (max === g) h = 60 * ((b - r) / d + 2);
+  else h = 60 * ((r - g) / d + 4);
+  if (h < 0) h += 360;
+  return { h, s, l };
+}
+
 function nearestColorName({ r, g, b }) {
+  const { h, s, l } = rgbToHsl(r, g, b);
+  // Achromatic: low saturation, or extreme lightness, reads as black/white/grey
+  // regardless of hue (this is what a dim/off-white surface actually is).
+  if (s < 0.22 || l < 0.08 || l > 0.94) {
+    if (l < 0.22) return "černá";
+    if (l > 0.85) return "bílá";
+    return "šedá";
+  }
   let best = null, bestDist = Infinity;
-  for (const c of NAMED_COLORS) {
-    const [cr, cg, cb] = c.rgb;
-    const d = (r - cr) ** 2 + (g - cg) ** 2 + (b - cb) ** 2;
-    if (d < bestDist) { bestDist = d; best = c; }
+  for (const c of NAMED_COLORS_HSL) {
+    let dh = Math.abs(h - c.h);
+    if (dh > 180) dh = 360 - dh;
+    const dHue = dh / 180;
+    const dSat = s - c.s;
+    const dLight = l - c.l;
+    // Hue matters most; lightness is weighted enough to keep dark "hnědá"
+    // and pale "béžová" from swallowing samples that belong to the other.
+    const dist = dHue * dHue * 3.0 + dSat * dSat * 1.0 + dLight * dLight * 1.8;
+    if (dist < bestDist) { bestDist = dist; best = c; }
   }
   return best.name;
 }
@@ -60,7 +92,7 @@ const state = {
   model: null,
   running: false,
   mode: "objects", // 'objects' | 'color' | 'measure' | 'walk'
-  settings: { voice: true, sensitivity: 0.45, detectIntervalMs: 300 },
+  settings: { voice: true, sensitivity: 0.45, detectIntervalMs: 300, aiAssist: false },
   calibration: { pxPerCm: null, refWidthCm: 8.56 },
   calibrating: false,
   calibratePoints: [],
@@ -70,6 +102,8 @@ const state = {
   lastPredictions: [],
   lastAnnounced: new Map(),
   lastWalkWarnAt: 0,
+  lastCocoHitAt: 0,
+  lastEmptyHintAt: 0,
   _hintTimer: null,
 };
 
@@ -207,6 +241,7 @@ function detectTick() {
   state.model.detect(state.video).then(preds => {
     state.lastPredictions = preds;
     handleMode(preds);
+    maybeAiAssist(preds);
     const elapsed = performance.now() - start;
     const wait = Math.max(0, state.settings.detectIntervalMs - elapsed);
     setTimeout(detectTick, wait);
@@ -223,14 +258,78 @@ function handleMode(preds) {
 
 function narrateNewObjects(preds) {
   const now = Date.now();
+  let anyAboveThreshold = false;
   preds.forEach(p => {
     if (p.score < 0.55) return;
+    anyAboveThreshold = true;
     const last = state.lastAnnounced.get(p.class) || 0;
     if (now - last > 8000) {
       state.lastAnnounced.set(p.class, now);
       speak(czLabel(p.class));
     }
   });
+  if (anyAboveThreshold) state.lastCocoHitAt = now;
+  if (!state.settings.aiAssist && now - (state.lastCocoHitAt || 0) > 6000 && now - state.lastEmptyHintAt > 8000) {
+    state.lastEmptyHintAt = now;
+    showHint("Nic z ~80 běžných kategorií appka nepoznává — zkus zapnout Chytřejší rozpoznávání v nastavení nebo tlačítko Popiš, co vidím.");
+  }
+}
+
+/* ---------- Opt-in periodic AI object recognition (beyond COCO-SSD's 80 classes) ----------
+ * COCO-SSD only knows a fixed set of everyday categories - it has no concept
+ * of e.g. an air conditioner, a radiator or a pendant lamp. When enabled (and
+ * an API key is set) this periodically asks Claude Vision what's in frame,
+ * which actually names arbitrary objects instead of only the COCO-80 list.
+ * Throttled and opt-in because every call spends the user's own API credit. */
+let aiAssistBusy = false;
+let lastAiAssistAt = 0;
+async function maybeAiAssist() {
+  if (!state.settings.aiAssist) return;
+  if (state.mode !== "objects" && state.mode !== "walk") return;
+  if (aiAssistBusy) return;
+  const now = Date.now();
+  if (now - lastAiAssistAt < 6000) return;
+  const key = (localStorage.getItem(LS_API_KEY) || "").trim();
+  if (!key) return;
+  lastAiAssistAt = now;
+  aiAssistBusy = true;
+  try {
+    const base64 = captureFrameDataUrl().split(",")[1];
+    const res = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "x-api-key": key,
+        "anthropic-version": "2023-06-01",
+        "anthropic-dangerous-direct-browser-access": "true",
+      },
+      body: JSON.stringify({
+        model: "claude-sonnet-5",
+        max_tokens: 80,
+        messages: [{
+          role: "user",
+          content: [
+            { type: "image", source: { type: "base64", media_type: "image/jpeg", data: base64 } },
+            {
+              type: "text",
+              text: "Vyjmenuj stručně česky hlavní věci v záběru, max 5, jen podstatná jména oddělená čárkou (např. \"klimatizace, radiátor, dveře\"), žádné věty, žádné uvozovky. Pokud nic konkrétního nejde rozeznat, napiš přesně: nic konkrétního.",
+            },
+          ],
+        }],
+      }),
+    });
+    if (!res.ok) throw new Error(`API chyba ${res.status}`);
+    const data = await res.json();
+    const text = (data.content || []).map(c => c.text || "").join(" ").trim();
+    if (text && text.toLowerCase() !== "nic konkrétního") {
+      showHint(text, 6000);
+      speak(text, { interrupt: true });
+    }
+  } catch (err) {
+    console.warn("ai-assist selhalo:", err);
+  } finally {
+    aiAssistBusy = false;
+  }
 }
 
 function walkAssistCheck(preds) {
@@ -351,10 +450,16 @@ function sampleColorAt(xNative, yNative) {
   cap.height = state.video.videoHeight;
   const cctx = cap.getContext("2d");
   cctx.drawImage(state.video, 0, 0, cap.width, cap.height);
-  const px = Math.max(0, Math.min(cap.width - 1, Math.round(xNative)));
-  const py = Math.max(0, Math.min(cap.height - 1, Math.round(yNative)));
-  const d = cctx.getImageData(px, py, 1, 1).data;
-  return { r: d[0], g: d[1], b: d[2] };
+  // Average a small patch, not one pixel — phone camera sensor noise and
+  // video compression blockiness make single-pixel sampling unreliable.
+  const half = 8;
+  const px = Math.max(half, Math.min(cap.width - 1 - half, Math.round(xNative)));
+  const py = Math.max(half, Math.min(cap.height - 1 - half, Math.round(yNative)));
+  const size = half * 2 + 1;
+  const data = cctx.getImageData(px - half, py - half, size, size).data;
+  let r = 0, g = 0, b = 0, n = 0;
+  for (let i = 0; i < data.length; i += 4) { r += data[i]; g += data[i + 1]; b += data[i + 2]; n++; }
+  return { r: Math.round(r / n), g: Math.round(g / n), b: Math.round(b / n) };
 }
 
 function onCanvasClick(evt) {
@@ -552,6 +657,10 @@ function wireUI() {
   const fpsEl = document.getElementById("detect-fps");
   fpsEl.value = String(state.settings.detectIntervalMs);
   fpsEl.addEventListener("change", () => { state.settings.detectIntervalMs = parseInt(fpsEl.value, 10); persistSettings(); });
+
+  const aiAssistEl = document.getElementById("toggle-ai-assist");
+  aiAssistEl.checked = state.settings.aiAssist;
+  aiAssistEl.addEventListener("change", () => { state.settings.aiAssist = aiAssistEl.checked; persistSettings(); });
 
   document.getElementById("ref-width").value = state.calibration.refWidthCm;
 

@@ -46,10 +46,16 @@ funguje na mobilu i desktopu primo v prohlizeci. Ctyri rezimy:
   + model [COCO-SSD](https://github.com/tensorflow/tfjs-models/tree/master/coco-ssd),
   na CDN, zadny vlastni backend) appka nahlas rika, co pozna (auto, osoba,
   pes, kolo…) a kresli kolem toho ramecky. COCO-SSD zna jen ~80 beznych
-  kategorii — konkretni druh stromu, znacku auta apod. nepozna.
-- **Barva** — tuknes kamkoliv na obraz, appka rekne nejblizsi nazev barvy
-  (vzorkovani pixelu ze snimku + nejblizsi pojmenovana barva v HSV/RGB
-  prostoru).
+  kategorii — bezne veci kolem domu (klimatizace, radiator, lampa…) nepozna
+  a rekne o tom appka hlaskou primo v UI. Volitelny prepinac **„Chytrejsi
+  rozpoznavani"** v nastaveni tohle obchazi — pri zapnutem prepinaci a
+  ulozenem API klici appka navic kazdych ~6 s posle snimek do Claude Vision,
+  ktere umi pojmenovat cokoliv (ne jen COCO-80), na ukor kreditu na klici.
+- **Barva** — tuknes kamkoliv na obraz, appka rekne nejblizsi nazev barvy.
+  Appka prumeruje mala plosku pixelu (ne jeden pixel — sum kamery a komprese
+  by jinak kazily odhad) a barvu appka klasifikuje v HSV/HSL prostoru s
+  samostatnym rozpoznanim achromatickych (cerna/bila/seda) tonu — naivni
+  RGB vzdalenost totiz plete tmave/teplo nasvicene bile povrchy s hnedou.
 - **Merit** — dvouklikova kalibrace podle predmetu se znamou sirkou (napr.
   platebni karta), pak appka dvema tuknutimi odhadne sirku/vysku predmetu a
   vykresli caru s odhadem v cm. Neni to laserove mereni, jen odhad z kamery.

@@ -107,6 +107,18 @@
         <label for="api-key">Anthropic API klíč</label>
         <input type="password" id="api-key" placeholder="sk-ant-..." autocomplete="off" />
       </div>
+      <div class="settings-row">
+        <label for="toggle-ai-assist">Chytřejší rozpoznávání v režimu Objekty</label>
+        <input type="checkbox" id="toggle-ai-assist" />
+      </div>
+      <p class="settings-hint">
+        Průběžná detekce (COCO-SSD) zná jen ~80 běžných kategorií — nepozná
+        klimatizaci, radiátor, lampu ani jiné konkrétní věci kolem domu.
+        Tohle zapne pravidelné (cca každých 6 s) dotazy na Claude Vision
+        přímo v režimu Objekty/Asistent, které umí pojmenovat cokoliv —
+        ale každý dotaz stojí kredit na tvém API klíči, proto appka to má
+        vypnuté ve výchozím stavu.
+      </p>
     </div>
 
     <div class="settings-section">
