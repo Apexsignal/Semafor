@@ -114,6 +114,12 @@ function errMessage(err) {
   if (err && err.message === "NO_MEDIA_DEVICES") {
     return "Appka potřebuje zabezpečené připojení (HTTPS) nebo localhost a prohlížeč s podporou kamery.";
   }
+  if (err && err.message === "MODEL_TIMEOUT") {
+    return "Model rozpoznávání se nenačetl ani po delší době — zkontroluj připojení k internetu (model se stahuje z CDN) a zkus to znovu. Pokud appka na tomhle zařízení/prohlížeči selže opakovaně, zkus jiný prohlížeč (na iPhonu Safari, na Androidu Chrome).";
+  }
+  if (err && err.message === "TF_BACKEND_TIMEOUT") {
+    return "Prohlížeč se nedokázal připravit na výpočty (WebGL) ani po delší době. Zkus appku obnovit, případně zkus jiný prohlížeč.";
+  }
   const name = err && err.name;
   if (name === "NotAllowedError") return "Appka nemá povolení ke kameře — povol ho v nastavení prohlížeče a obnov stránku.";
   if (name === "NotFoundError") return "Appka nenašla žádnou kameru.";
@@ -121,12 +127,34 @@ function errMessage(err) {
   return "Něco se nepovedlo: " + (err && err.message ? err.message : String(err));
 }
 
+function withTimeout(promise, ms, timeoutMessage) {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error(timeoutMessage)), ms);
+    promise.then(
+      v => { clearTimeout(timer); resolve(v); },
+      e => { clearTimeout(timer); reject(e); }
+    );
+  });
+}
+
+async function prepareBackend() {
+  try {
+    await withTimeout(tf.setBackend("webgl").then(() => tf.ready()), 12000, "TF_BACKEND_TIMEOUT");
+  } catch (err) {
+    console.warn("WebGL backend se nepřipravil, zkouším CPU:", err);
+    await withTimeout(tf.setBackend("cpu").then(() => tf.ready()), 12000, "TF_BACKEND_TIMEOUT");
+  }
+  console.log("[vision-assistant] tf backend:", tf.getBackend());
+}
+
 async function boot() {
   try {
     setBootMsg("Spouštím kameru…");
     await startCamera();
-    setBootMsg("Načítám model rozpoznávání…");
-    state.model = await cocoSsd.load();
+    setBootMsg("Připravuji výpočetní jednotku…");
+    await prepareBackend();
+    setBootMsg("Stahuji model rozpoznávání… (na horší síti to může chvíli trvat)");
+    state.model = await withTimeout(cocoSsd.load(), 30000, "MODEL_TIMEOUT");
     hideBootScreen();
     setStatus("ready", "Připraveno");
     state.running = true;
@@ -146,6 +174,7 @@ function showBootError(msg) {
   const el = document.getElementById("boot-error");
   el.textContent = msg;
   el.hidden = false;
+  document.getElementById("boot-retry").hidden = false;
 }
 function setStatus(kind, text) {
   document.getElementById("status-dot").className = kind;
@@ -553,6 +582,7 @@ function init() {
   state.ctx = state.canvas.getContext("2d");
   loadSettings();
   wireUI();
+  document.getElementById("boot-retry").addEventListener("click", () => location.reload());
   setMode("objects");
   boot();
 }
