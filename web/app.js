@@ -1,271 +1,559 @@
 "use strict";
 
-// Stejne HSV rozsahy a prah jako v detector.py - viz README pro vysvetleni.
-const COLOR_RANGES = {
-  cervena: [[[0, 100, 100], [10, 255, 255]], [[160, 100, 100], [179, 255, 255]]],
-  oranzova: [[[11, 100, 100], [25, 255, 255]]],
-  zelena: [[[40, 70, 70], [90, 255, 255]]],
+/* ---------- Czech labels for the 80 COCO-SSD classes ---------- */
+const CZ_LABELS = {
+  person: "osoba", bicycle: "kolo", car: "auto", motorcycle: "motorka",
+  airplane: "letadlo", bus: "autobus", train: "vlak", truck: "náklaďák",
+  boat: "loď", "traffic light": "semafor", "fire hydrant": "hydrant",
+  "stop sign": "značka stop", "parking meter": "parkovací automat",
+  bench: "lavička", bird: "pták", cat: "kočka", dog: "pes", horse: "kůň",
+  sheep: "ovce", cow: "kráva", elephant: "slon", bear: "medvěd",
+  zebra: "zebra", giraffe: "žirafa", backpack: "batoh", umbrella: "deštník",
+  handbag: "kabelka", tie: "kravata", suitcase: "kufr", frisbee: "frisbee",
+  skis: "lyže", snowboard: "snowboard", "sports ball": "míč", kite: "drak",
+  "baseball bat": "baseballová pálka", "baseball glove": "baseballová rukavice",
+  skateboard: "skateboard", surfboard: "surf", "tennis racket": "tenisová raketa",
+  bottle: "láhev", "wine glass": "sklenice na víno", cup: "hrnek",
+  fork: "vidlička", knife: "nůž", spoon: "lžíce", bowl: "miska",
+  banana: "banán", apple: "jablko", sandwich: "sendvič", orange: "pomeranč",
+  broccoli: "brokolice", carrot: "mrkev", "hot dog": "hot dog", pizza: "pizza",
+  donut: "donut", cake: "dort", chair: "židle", couch: "pohovka",
+  "potted plant": "květina v květináči", bed: "postel",
+  "dining table": "jídelní stůl", toilet: "záchod", tv: "televize",
+  laptop: "notebook", mouse: "myš", remote: "dálkový ovladač",
+  keyboard: "klávesnice", "cell phone": "mobil", microwave: "mikrovlnka",
+  oven: "trouba", toaster: "toustovač", sink: "dřez", refrigerator: "lednička",
+  book: "kniha", clock: "hodiny", vase: "váza", scissors: "nůžky",
+  "teddy bear": "plyšák", "hair drier": "fén", toothbrush: "kartáček na zuby",
 };
-const MIN_FILL_RATIO = 0.35;
+function czLabel(cls) { return CZ_LABELS[cls] || cls; }
 
-const STOP_SPEED_KMH = 5; // pod touhle rychlosti se auto povazuje za stojici
-const DETECT_INTERVAL_MS = 500;
-const DEBOUNCE_MS = 1000;
-const MAX_FRAME_SIDE = 480; // downscale snimku pred zpracovanim kvuli rychlosti
-
-const CS_HLAS = {
-  cervena: "Cervena",
-  oranzova: "Oranzova, pripravit",
-  zelena: "Zelena, jed",
-};
-
-const els = {
-  video: document.getElementById("video"),
-  overlay: document.getElementById("overlay"),
-  stav: document.getElementById("stav"),
-  banner: document.getElementById("banner"),
-  rychlost: document.getElementById("rychlost"),
-  detekceStav: document.getElementById("detekce-stav"),
-  vzdyDetekovat: document.getElementById("vzdy-detekovat"),
-  start: document.getElementById("start"),
-};
-
-let cvReady = false;
-let lastSpeedKmh = null;
-let geoAvailable = false;
-let lastState = null;
-let lastChangeTs = 0;
-let colorMats = null;
-let colorMatsSize = null;
-let processing = false;
-
-function waitForCv() {
-  return new Promise((resolve) => {
-    const check = () => {
-      if (window.cv && cv.Mat) {
-        resolve();
-      } else {
-        setTimeout(check, 50);
-      }
-    };
-    check();
-  });
+/* ---------- Named colors (Czech) for nearest-color lookup ---------- */
+const NAMED_COLORS = [
+  { name: "černá", rgb: [15, 15, 15] },
+  { name: "bílá", rgb: [245, 245, 245] },
+  { name: "šedá", rgb: [130, 130, 130] },
+  { name: "červená", rgb: [214, 40, 40] },
+  { name: "oranžová", rgb: [235, 130, 30] },
+  { name: "žlutá", rgb: [235, 210, 40] },
+  { name: "zelená", rgb: [45, 165, 70] },
+  { name: "tyrkysová", rgb: [35, 185, 185] },
+  { name: "modrá", rgb: [35, 95, 215] },
+  { name: "fialová", rgb: [140, 65, 195] },
+  { name: "růžová", rgb: [225, 110, 170] },
+  { name: "hnědá", rgb: [110, 70, 40] },
+  { name: "béžová", rgb: [215, 195, 165] },
+];
+function nearestColorName({ r, g, b }) {
+  let best = null, bestDist = Infinity;
+  for (const c of NAMED_COLORS) {
+    const [cr, cg, cb] = c.rgb;
+    const d = (r - cr) ** 2 + (g - cg) ** 2 + (b - cb) ** 2;
+    if (d < bestDist) { bestDist = d; best = c; }
+  }
+  return best.name;
 }
 
-async function setupCamera() {
+/* ---------- Global state ---------- */
+const state = {
+  video: null, canvas: null, ctx: null,
+  model: null,
+  running: false,
+  mode: "objects", // 'objects' | 'color' | 'measure' | 'walk'
+  settings: { voice: true, sensitivity: 0.45, detectIntervalMs: 300 },
+  calibration: { pxPerCm: null, refWidthCm: 8.56 },
+  calibrating: false,
+  calibratePoints: [],
+  measurePoints: [],
+  lastMeasurement: null,
+  colorMarker: null,
+  lastPredictions: [],
+  lastAnnounced: new Map(),
+  lastWalkWarnAt: 0,
+  _hintTimer: null,
+};
+
+const LS_SETTINGS_KEY = "vision_assistant_settings_v1";
+const LS_API_KEY = "vision_assistant_api_key";
+
+/* ---------- Speech ---------- */
+let czVoice = null;
+function pickVoice() {
+  if (!("speechSynthesis" in window)) return;
+  const voices = speechSynthesis.getVoices();
+  czVoice = voices.find(v => v.lang && v.lang.toLowerCase().startsWith("cs")) || null;
+}
+if ("speechSynthesis" in window) {
+  speechSynthesis.onvoiceschanged = pickVoice;
+  pickVoice();
+}
+function speak(text, { interrupt = false } = {}) {
+  if (!("speechSynthesis" in window) || !state.settings.voice) return;
+  if (interrupt) speechSynthesis.cancel();
+  const u = new SpeechSynthesisUtterance(text);
+  if (czVoice) u.voice = czVoice;
+  u.lang = "cs-CZ";
+  u.rate = 1.02;
+  speechSynthesis.speak(u);
+}
+
+/* ---------- Camera & model boot ---------- */
+async function startCamera() {
+  if (!("mediaDevices" in navigator) || !navigator.mediaDevices.getUserMedia) {
+    throw new Error("NO_MEDIA_DEVICES");
+  }
   const stream = await navigator.mediaDevices.getUserMedia({
-    video: { facingMode: { ideal: "environment" } },
+    video: { facingMode: { ideal: "environment" }, width: { ideal: 1280 }, height: { ideal: 720 } },
     audio: false,
   });
-  els.video.srcObject = stream;
-  await new Promise((resolve) => {
-    els.video.onloadedmetadata = resolve;
-  });
-  await els.video.play();
+  state.video.srcObject = stream;
+  await state.video.play();
 }
 
-function setupGeolocation() {
-  if (!("geolocation" in navigator)) {
-    els.detekceStav.textContent = "GPS nedostupne v prohlizeci";
-    return;
+function errMessage(err) {
+  if (err && err.message === "NO_MEDIA_DEVICES") {
+    return "Appka potřebuje zabezpečené připojení (HTTPS) nebo localhost a prohlížeč s podporou kamery.";
   }
-  navigator.geolocation.watchPosition(
-    (pos) => {
-      geoAvailable = true;
-      const speedMs = pos.coords.speed;
-      lastSpeedKmh = speedMs === null || Number.isNaN(speedMs) ? null : speedMs * 3.6;
-      els.rychlost.textContent = lastSpeedKmh === null ? "--" : Math.round(lastSpeedKmh);
-    },
-    () => {
-      geoAvailable = false;
-    },
-    { enableHighAccuracy: true, maximumAge: 2000, timeout: 5000 }
-  );
+  const name = err && err.name;
+  if (name === "NotAllowedError") return "Appka nemá povolení ke kameře — povol ho v nastavení prohlížeče a obnov stránku.";
+  if (name === "NotFoundError") return "Appka nenašla žádnou kameru.";
+  if (name === "NotReadableError") return "Kamera je obsazená jinou appkou.";
+  return "Něco se nepovedlo: " + (err && err.message ? err.message : String(err));
 }
 
-function shouldDetectNow() {
-  if (els.vzdyDetekovat.checked) return true;
-  if (!geoAvailable || lastSpeedKmh === null) {
-    els.banner.textContent = "GPS rychlost nedostupna - detekuji porad";
-    return true;
-  }
-  els.banner.textContent = "";
-  return lastSpeedKmh <= STOP_SPEED_KMH;
-}
-
-function ensureColorMats(rows, cols) {
-  if (colorMatsSize && colorMatsSize.rows === rows && colorMatsSize.cols === cols) return;
-  if (colorMats) {
-    for (const ranges of Object.values(colorMats)) {
-      for (const { low, high } of ranges) {
-        low.delete();
-        high.delete();
-      }
-    }
-  }
-  colorMats = {};
-  for (const [name, ranges] of Object.entries(COLOR_RANGES)) {
-    colorMats[name] = ranges.map(([lo, hi]) => ({
-      low: new cv.Mat(rows, cols, cv.CV_8UC3, new cv.Scalar(lo[0], lo[1], lo[2], 0)),
-      high: new cv.Mat(rows, cols, cv.CV_8UC3, new cv.Scalar(hi[0], hi[1], hi[2], 0)),
-    }));
-  }
-  colorMatsSize = { rows, cols };
-}
-
-// Zrcadli detector.py: Houghovy kruznice + podil HSV barevne masky uvnitr kruhu.
-function detect(srcRGBA) {
-  const gray = new cv.Mat();
-  cv.cvtColor(srcRGBA, gray, cv.COLOR_RGBA2GRAY);
-  const blurred = new cv.Mat();
-  cv.GaussianBlur(gray, blurred, new cv.Size(9, 9), 2, 2, cv.BORDER_DEFAULT);
-
-  const rgb = new cv.Mat();
-  cv.cvtColor(srcRGBA, rgb, cv.COLOR_RGBA2RGB);
-  const hsv = new cv.Mat();
-  cv.cvtColor(rgb, hsv, cv.COLOR_RGB2HSV);
-  rgb.delete();
-
-  ensureColorMats(hsv.rows, hsv.cols);
-
-  const circles = new cv.Mat();
-  cv.HoughCircles(
-    blurred,
-    circles,
-    cv.HOUGH_GRADIENT,
-    1,
-    Math.max(Math.floor(blurred.rows / 8), 1),
-    100,
-    22,
-    5,
-    Math.max(Math.floor(Math.min(blurred.rows, blurred.cols) / 4), 10)
-  );
-
-  let best = null;
-
-  for (let i = 0; i < circles.cols; i++) {
-    const x = circles.data32F[i * 3];
-    const y = circles.data32F[i * 3 + 1];
-    const r = circles.data32F[i * 3 + 2];
-
-    const mask = cv.Mat.zeros(gray.rows, gray.cols, cv.CV_8UC1);
-    cv.circle(mask, new cv.Point(x, y), r, new cv.Scalar(255, 255, 255, 255), -1);
-    const circleArea = cv.countNonZero(mask);
-    if (circleArea === 0) {
-      mask.delete();
-      continue;
-    }
-
-    for (const [colorName, ranges] of Object.entries(colorMats)) {
-      const colorMask = cv.Mat.zeros(gray.rows, gray.cols, cv.CV_8UC1);
-      for (const { low, high } of ranges) {
-        const partial = new cv.Mat();
-        cv.inRange(hsv, low, high, partial);
-        cv.bitwise_or(colorMask, partial, colorMask);
-        partial.delete();
-      }
-      const overlap = new cv.Mat();
-      cv.bitwise_and(colorMask, mask, overlap);
-      const match = cv.countNonZero(overlap);
-      colorMask.delete();
-      overlap.delete();
-
-      const ratio = match / circleArea;
-      if (ratio >= MIN_FILL_RATIO && (!best || ratio > best.confidence)) {
-        best = { color: colorName, confidence: ratio, x, y, r };
-      }
-    }
-    mask.delete();
-  }
-
-  gray.delete();
-  blurred.delete();
-  hsv.delete();
-  circles.delete();
-
-  return best;
-}
-
-function speak(text) {
-  if (!("speechSynthesis" in window)) return;
-  const u = new SpeechSynthesisUtterance(text);
-  u.lang = "cs-CZ";
-  window.speechSynthesis.speak(u);
-}
-
-function drawOverlay(result, width, height) {
-  const canvas = els.overlay;
-  canvas.width = width;
-  canvas.height = height;
-  const ctx = canvas.getContext("2d");
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-  if (!result) return;
-  const colorCss = { cervena: "#ff4d4d", oranzova: "#ffa500", zelena: "#37d67a" }[result.color];
-  ctx.strokeStyle = colorCss;
-  ctx.lineWidth = 4;
-  ctx.beginPath();
-  ctx.arc(result.x, result.y, result.r, 0, Math.PI * 2);
-  ctx.stroke();
-}
-
-function updateStav(result) {
-  const now = performance.now();
-  const state = result ? result.color : null;
-
-  if (state !== lastState && now - lastChangeTs > DEBOUNCE_MS) {
-    lastState = state;
-    lastChangeTs = now;
-    if (state) speak(CS_HLAS[state]);
-  }
-
-  els.stav.textContent = state || "-";
-  els.stav.className = state || "zadna";
-  els.stav.dataset.color = state || "";
-}
-
-function tick() {
-  if (processing || !cvReady || els.video.readyState < 2) return;
-
-  if (!shouldDetectNow()) {
-    const speedTxt = lastSpeedKmh === null ? "?" : Math.round(lastSpeedKmh);
-    els.detekceStav.textContent = `jede se (${speedTxt} km/h) - detekce pauzne`;
-    drawOverlay(null, els.overlay.width || 1, els.overlay.height || 1);
-    updateStav(null);
-    return;
-  }
-
-  els.detekceStav.textContent = "detekuji";
-  processing = true;
+async function boot() {
   try {
-    const w = els.video.videoWidth;
-    const h = els.video.videoHeight;
-    const scale = Math.min(1, MAX_FRAME_SIDE / Math.max(w, h));
-    const cw = Math.max(1, Math.round(w * scale));
-    const ch = Math.max(1, Math.round(h * scale));
-
-    const tmp = document.createElement("canvas");
-    tmp.width = cw;
-    tmp.height = ch;
-    tmp.getContext("2d").drawImage(els.video, 0, 0, cw, ch);
-    const src = cv.imread(tmp);
-
-    const result = detect(src);
-    src.delete();
-
-    drawOverlay(result, cw, ch);
-    updateStav(result);
-  } finally {
-    processing = false;
+    setBootMsg("Spouštím kameru…");
+    await startCamera();
+    setBootMsg("Načítám model rozpoznávání…");
+    state.model = await cocoSsd.load();
+    hideBootScreen();
+    setStatus("ready", "Připraveno");
+    state.running = true;
+    requestAnimationFrame(drawLoop);
+    detectTick();
+  } catch (err) {
+    console.error(err);
+    showBootError(errMessage(err));
+    setStatus("error", "Chyba");
   }
 }
 
-els.start.addEventListener("click", async () => {
-  els.start.disabled = true;
-  els.start.textContent = "Nacitam...";
-  await waitForCv();
-  cvReady = true;
-  await setupCamera();
-  setupGeolocation();
-  els.start.style.display = "none";
-  setInterval(tick, DETECT_INTERVAL_MS);
-});
+function setBootMsg(t) { document.getElementById("boot-msg").textContent = t; }
+function hideBootScreen() { document.getElementById("boot-screen").classList.add("hidden"); }
+function showBootError(msg) {
+  document.getElementById("boot-msg").textContent = "Appka se nemohla spustit";
+  const el = document.getElementById("boot-error");
+  el.textContent = msg;
+  el.hidden = false;
+}
+function setStatus(kind, text) {
+  document.getElementById("status-dot").className = kind;
+  document.getElementById("status-text").textContent = text;
+}
+
+/* ---------- Canvas sizing ---------- */
+function resizeCanvas() {
+  const v = state.video;
+  if (!v.videoWidth) return;
+  state.canvas.width = v.videoWidth;
+  state.canvas.height = v.videoHeight;
+}
+
+/* ---------- Coordinate mapping (inverts CSS object-fit:cover) ---------- */
+function clientToCanvasCoords(evt, canvas) {
+  const rect = canvas.getBoundingClientRect();
+  const cssX = evt.clientX - rect.left;
+  const cssY = evt.clientY - rect.top;
+  const scale = Math.max(rect.width / canvas.width, rect.height / canvas.height);
+  const dispW = canvas.width * scale, dispH = canvas.height * scale;
+  const offX = (rect.width - dispW) / 2, offY = (rect.height - dispH) / 2;
+  return { x: (cssX - offX) / scale, y: (cssY - offY) / scale };
+}
+
+/* ---------- Detection loop (throttled, independent of draw) ---------- */
+function detectTick() {
+  if (!state.running) return;
+  const start = performance.now();
+  state.model.detect(state.video).then(preds => {
+    state.lastPredictions = preds;
+    handleMode(preds);
+    const elapsed = performance.now() - start;
+    const wait = Math.max(0, state.settings.detectIntervalMs - elapsed);
+    setTimeout(detectTick, wait);
+  }).catch(err => {
+    console.error("detect error", err);
+    setTimeout(detectTick, state.settings.detectIntervalMs);
+  });
+}
+
+function handleMode(preds) {
+  if (state.mode === "objects") narrateNewObjects(preds);
+  else if (state.mode === "walk") walkAssistCheck(preds);
+}
+
+function narrateNewObjects(preds) {
+  const now = Date.now();
+  preds.forEach(p => {
+    if (p.score < 0.55) return;
+    const last = state.lastAnnounced.get(p.class) || 0;
+    if (now - last > 8000) {
+      state.lastAnnounced.set(p.class, now);
+      speak(czLabel(p.class));
+    }
+  });
+}
+
+function walkAssistCheck(preds) {
+  const now = Date.now();
+  if (now - state.lastWalkWarnAt < 2500) return;
+  const cw = state.canvas.width, ch = state.canvas.height;
+  const threshold = 0.85 - state.settings.sensitivity; // higher sensitivity -> warns earlier
+  let closest = null;
+  preds.forEach(p => {
+    if (p.score < 0.5) return;
+    const [x, y, w, h] = p.bbox;
+    const heightFrac = h / ch;
+    const centerX = x + w / 2;
+    const inCenterZone = centerX > cw * 0.2 && centerX < cw * 0.8;
+    if (inCenterZone && heightFrac > threshold) {
+      if (!closest || heightFrac > closest.heightFrac) closest = { p, heightFrac, centerX };
+    }
+  });
+  if (closest) {
+    state.lastWalkWarnAt = now;
+    const side = closest.centerX < cw * 0.4 ? "vlevo" : closest.centerX > cw * 0.6 ? "vpravo" : "přímo před tebou";
+    speak(`Pozor, překážka ${side}: ${czLabel(closest.p.class)}`, { interrupt: true });
+  }
+}
+
+/* ---------- Drawing ---------- */
+function drawLoop() {
+  if (!state.running) return;
+  const ctx = state.ctx;
+  ctx.clearRect(0, 0, state.canvas.width, state.canvas.height);
+  if (state.mode === "objects" || state.mode === "walk") {
+    drawBoxes(state.lastPredictions);
+  } else if (state.mode === "color") {
+    if (state.colorMarker && Date.now() - state.colorMarker.ts < 4000) drawColorSwatch(state.colorMarker);
+  } else if (state.mode === "measure") {
+    drawBoxes(state.lastPredictions, { dim: true });
+    drawCalibrationOrMeasurement();
+  }
+  requestAnimationFrame(drawLoop);
+}
+
+function drawBoxes(preds, opts = {}) {
+  const ctx = state.ctx;
+  preds.forEach(p => {
+    if (p.score < 0.5) return;
+    const [x, y, w, h] = p.bbox;
+    ctx.strokeStyle = opts.dim ? "rgba(46,230,198,.35)" : "#2ee6c6";
+    ctx.lineWidth = Math.max(2, state.canvas.width / 400);
+    ctx.strokeRect(x, y, w, h);
+    if (!opts.dim) drawLabel(x, y, `${czLabel(p.class)} ${Math.round(p.score * 100)}%`);
+  });
+}
+
+function drawPoint(p, color) {
+  const ctx = state.ctx;
+  ctx.fillStyle = color;
+  ctx.beginPath();
+  ctx.arc(p.x, p.y, Math.max(4, state.canvas.width / 250), 0, Math.PI * 2);
+  ctx.fill();
+}
+
+function drawColorSwatch(m) {
+  const ctx = state.ctx;
+  drawPoint(m, `rgb(${m.rgb.r},${m.rgb.g},${m.rgb.b})`);
+  ctx.strokeStyle = "#fff";
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.arc(m.x, m.y, Math.max(4, state.canvas.width / 250), 0, Math.PI * 2);
+  ctx.stroke();
+  drawLabel(m.x + 14, m.y - 14, m.label, {});
+}
+
+function roundRect(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
+}
+
+function drawLabel(x, y, text, opts = {}) {
+  const ctx = state.ctx;
+  const fontSize = Math.max(13, state.canvas.width / 55);
+  ctx.font = `600 ${fontSize}px -apple-system, sans-serif`;
+  const paddingX = 6, paddingY = 4;
+  const w = ctx.measureText(text).width + paddingX * 2;
+  const h = fontSize + paddingY * 2;
+  let lx = x, ly = y - h - 4;
+  if (opts.center) { lx = x - w / 2; ly = y - h - 8; }
+  if (ly < 0) ly = y + 6;
+  ctx.fillStyle = "rgba(8,9,11,.8)";
+  roundRect(ctx, lx, ly, w, h, 6);
+  ctx.fill();
+  ctx.fillStyle = "#f4f4f2";
+  ctx.fillText(text, lx + paddingX, ly + h - paddingY - 3);
+}
+
+function drawCalibrationOrMeasurement() {
+  const ctx = state.ctx;
+  const pts = state.calibrating ? state.calibratePoints : state.measurePoints;
+  pts.forEach(p => drawPoint(p, state.calibrating ? "#ffb020" : "#2ee6c6"));
+  if (state.lastMeasurement && !state.calibrating && state.measurePoints.length === 0) {
+    const { a, b, cm } = state.lastMeasurement;
+    ctx.strokeStyle = "#2ee6c6";
+    ctx.lineWidth = Math.max(2, state.canvas.width / 300);
+    ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+    drawPoint(a, "#2ee6c6"); drawPoint(b, "#2ee6c6");
+    drawLabel((a.x + b.x) / 2, (a.y + b.y) / 2, `${cm.toFixed(1)} cm (odhad)`, { center: true });
+  }
+}
+
+/* ---------- Canvas taps: color sampling & measurement ---------- */
+function sampleColorAt(xNative, yNative) {
+  const cap = document.getElementById("capture-canvas");
+  cap.width = state.video.videoWidth;
+  cap.height = state.video.videoHeight;
+  const cctx = cap.getContext("2d");
+  cctx.drawImage(state.video, 0, 0, cap.width, cap.height);
+  const px = Math.max(0, Math.min(cap.width - 1, Math.round(xNative)));
+  const py = Math.max(0, Math.min(cap.height - 1, Math.round(yNative)));
+  const d = cctx.getImageData(px, py, 1, 1).data;
+  return { r: d[0], g: d[1], b: d[2] };
+}
+
+function onCanvasClick(evt) {
+  const { x, y } = clientToCanvasCoords(evt, state.canvas);
+  if (state.mode === "color") {
+    const rgb = sampleColorAt(x, y);
+    const name = nearestColorName(rgb);
+    state.colorMarker = { x, y, rgb, ts: Date.now(), label: name };
+    showHint(`Barva: ${name}`);
+    speak(`Barva: ${name}`, { interrupt: true });
+  } else if (state.mode === "measure") {
+    handleMeasureTap(x, y);
+  }
+}
+
+function handleMeasureTap(x, y) {
+  if (state.calibrating) {
+    state.calibratePoints.push({ x, y });
+    if (state.calibratePoints.length === 2) {
+      const [a, b] = state.calibratePoints;
+      const distPx = Math.hypot(b.x - a.x, b.y - a.y);
+      const refCm = parseFloat(document.getElementById("ref-width").value) || 8.56;
+      state.calibration.pxPerCm = distPx / refCm;
+      state.calibration.refWidthCm = refCm;
+      state.calibrating = false;
+      state.calibratePoints = [];
+      persistSettings();
+      updateCalibStatus();
+      showHint("Kalibrace hotová. Teď ťukni na dva krajní body měřeného předmětu.");
+      speak("Kalibrace hotová", { interrupt: true });
+    } else {
+      showHint("Teď ťukni na druhý okraj reference.", 0);
+    }
+    return;
+  }
+  if (!state.calibration.pxPerCm) {
+    showHint("Appka ještě není kalibrovaná — otevři nastavení (ozubené kolo) a klikni na Kalibrovat.");
+    return;
+  }
+  state.measurePoints.push({ x, y });
+  if (state.measurePoints.length === 2) {
+    const [a, b] = state.measurePoints;
+    const distPx = Math.hypot(b.x - a.x, b.y - a.y);
+    const cm = distPx / state.calibration.pxPerCm;
+    state.lastMeasurement = { a, b, cm };
+    state.measurePoints = [];
+    showHint(`Odhad: ${cm.toFixed(1)} cm`);
+    speak(`Přibližně ${cm.toFixed(0)} centimetrů`, { interrupt: true });
+  } else {
+    showHint("Ťukni na druhý bod, který chceš změřit.", 0);
+  }
+}
+
+/* ---------- Hints ---------- */
+function showHint(text, ms = 5000) {
+  const el = document.getElementById("hint-bar");
+  el.innerHTML = "";
+  const span = document.createElement("span");
+  span.textContent = text;
+  el.appendChild(span);
+  clearTimeout(state._hintTimer);
+  if (ms > 0) state._hintTimer = setTimeout(() => { el.innerHTML = ""; }, ms);
+}
+
+/* ---------- Mode switching ---------- */
+function setMode(mode) {
+  state.mode = mode;
+  document.querySelectorAll(".mode-btn[data-mode]").forEach(b => {
+    b.classList.toggle("active", b.dataset.mode === mode);
+  });
+  state.measurePoints = [];
+  if (mode !== "measure") { state.calibrating = false; state.calibratePoints = []; }
+  const hints = {
+    objects: "Appka nahlas řekne, co pozná (auto, osoba, pes…).",
+    color: "Ťukni kamkoliv na obraz — appka řekne barvu.",
+    measure: state.calibration.pxPerCm
+      ? "Ťukni na dva krajní body předmětu, který chceš změřit."
+      : "Appka ještě není kalibrovaná — otevři nastavení (ozubené kolo) a klikni na Kalibrovat.",
+    walk: "Appka bude nahlas upozorňovat na překážky v cestě.",
+  };
+  showHint(hints[mode] || "");
+}
+
+/* ---------- AI "describe what I see" (uses user's own Anthropic key) ---------- */
+function captureFrameDataUrl() {
+  const cap = document.getElementById("capture-canvas");
+  cap.width = state.video.videoWidth;
+  cap.height = state.video.videoHeight;
+  const cctx = cap.getContext("2d");
+  cctx.drawImage(state.video, 0, 0, cap.width, cap.height);
+  return cap.toDataURL("image/jpeg", 0.85);
+}
+
+async function askAI() {
+  const key = (localStorage.getItem(LS_API_KEY) || "").trim();
+  if (!key) {
+    document.getElementById("settings-overlay").hidden = false;
+    showHint("Nejdřív appce zadej Anthropic API klíč v nastavení.");
+    return;
+  }
+  const panel = document.getElementById("ai-panel");
+  const textEl = document.getElementById("ai-text");
+  panel.hidden = false;
+  textEl.textContent = "Analyzuju obraz…";
+  try {
+    const base64 = captureFrameDataUrl().split(",")[1];
+    const res = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "x-api-key": key,
+        "anthropic-version": "2023-06-01",
+        "anthropic-dangerous-direct-browser-access": "true",
+      },
+      body: JSON.stringify({
+        model: "claude-sonnet-5",
+        max_tokens: 400,
+        messages: [{
+          role: "user",
+          content: [
+            { type: "image", source: { type: "base64", media_type: "image/jpeg", data: base64 } },
+            {
+              type: "text",
+              text: "Popiš česky a věcně, co je na fotce vidět — konkrétní věci (např. druh stromu, značka/typ auta, co teče v řece, název ulice pokud je čitelný z cedule). Piš krátce, 2-4 věty, jako pro člověka, co se dívá poprvé.",
+            },
+          ],
+        }],
+      }),
+    });
+    if (!res.ok) {
+      const body = await res.text().catch(() => "");
+      throw new Error(`API chyba ${res.status}: ${body.slice(0, 200)}`);
+    }
+    const data = await res.json();
+    const text = (data.content || []).map(c => c.text || "").join(" ").trim() || "Appka nedostala žádnou odpověď.";
+    textEl.textContent = text;
+    speak(text, { interrupt: true });
+  } catch (err) {
+    console.error(err);
+    textEl.textContent = "Nepodařilo se získat popis: " + (err.message || err);
+  }
+}
+
+/* ---------- Settings persistence ---------- */
+function persistSettings() {
+  localStorage.setItem(LS_SETTINGS_KEY, JSON.stringify({
+    settings: state.settings,
+    calibration: state.calibration,
+  }));
+}
+function loadSettings() {
+  try {
+    const raw = localStorage.getItem(LS_SETTINGS_KEY);
+    if (raw) {
+      const saved = JSON.parse(raw);
+      Object.assign(state.settings, saved.settings || {});
+      if (saved.calibration) state.calibration = saved.calibration;
+    }
+  } catch (e) { /* ignore corrupt storage */ }
+  document.getElementById("api-key").value = localStorage.getItem(LS_API_KEY) || "";
+}
+function updateCalibStatus() {
+  const el = document.getElementById("calib-status");
+  el.textContent = state.calibration.pxPerCm
+    ? `Kalibrováno (referenční šířka ${state.calibration.refWidthCm} cm)`
+    : "Nekalibrováno";
+}
+
+/* ---------- Wiring ---------- */
+function wireUI() {
+  document.querySelectorAll(".mode-btn[data-mode]").forEach(b => {
+    b.addEventListener("click", () => setMode(b.dataset.mode));
+  });
+  document.getElementById("btn-ai").addEventListener("click", askAI);
+  document.getElementById("ai-close").addEventListener("click", () => {
+    document.getElementById("ai-panel").hidden = true;
+  });
+
+  document.getElementById("btn-settings").addEventListener("click", () => {
+    document.getElementById("settings-overlay").hidden = false;
+  });
+  document.getElementById("settings-close").addEventListener("click", closeSettings);
+  document.getElementById("settings-overlay").addEventListener("click", e => {
+    if (e.target.id === "settings-overlay") closeSettings();
+  });
+
+  const voiceEl = document.getElementById("toggle-voice");
+  voiceEl.checked = state.settings.voice;
+  voiceEl.addEventListener("change", () => { state.settings.voice = voiceEl.checked; persistSettings(); });
+
+  const sensEl = document.getElementById("sensitivity");
+  sensEl.value = state.settings.sensitivity;
+  sensEl.addEventListener("input", () => { state.settings.sensitivity = parseFloat(sensEl.value); persistSettings(); });
+
+  const fpsEl = document.getElementById("detect-fps");
+  fpsEl.value = String(state.settings.detectIntervalMs);
+  fpsEl.addEventListener("change", () => { state.settings.detectIntervalMs = parseInt(fpsEl.value, 10); persistSettings(); });
+
+  document.getElementById("ref-width").value = state.calibration.refWidthCm;
+
+  document.getElementById("btn-calibrate").addEventListener("click", () => {
+    state.calibrating = true;
+    state.calibratePoints = [];
+    closeSettings();
+    setMode("measure");
+    showHint("Ťukni na levý okraj reference, pak na pravý.", 0);
+  });
+
+  document.getElementById("api-key").addEventListener("change", e => {
+    localStorage.setItem(LS_API_KEY, e.target.value.trim());
+  });
+
+  state.canvas.addEventListener("click", onCanvasClick);
+  state.video.addEventListener("loadedmetadata", resizeCanvas);
+  window.addEventListener("resize", resizeCanvas);
+
+  updateCalibStatus();
+}
+function closeSettings() { document.getElementById("settings-overlay").hidden = true; }
+
+/* ---------- Init ---------- */
+function init() {
+  state.video = document.getElementById("video");
+  state.canvas = document.getElementById("overlay");
+  state.ctx = state.canvas.getContext("2d");
+  loadSettings();
+  wireUI();
+  setMode("objects");
+  boot();
+}
+document.addEventListener("DOMContentLoaded", init);

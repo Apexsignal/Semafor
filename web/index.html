@@ -1,45 +1,129 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="cs">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-<title>Semafor asistent</title>
-<style>
-  html, body { margin: 0; padding: 0; background: #111; color: #eee; font-family: system-ui, sans-serif; }
-  #wrap { max-width: 480px; margin: 0 auto; padding: 12px; box-sizing: border-box; }
-  .video-box { position: relative; width: 100%; aspect-ratio: 3 / 4; background: #000; border-radius: 12px; overflow: hidden; }
-  video, canvas#overlay { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
-  canvas#overlay { pointer-events: none; }
-  #stav { font-size: 1.6rem; font-weight: 700; text-align: center; margin: 14px 0 4px; min-height: 2.2em; }
-  #stav.cervena { color: #ff4d4d; }
-  #stav.oranzova { color: #ffa500; }
-  #stav.zelena { color: #37d67a; }
-  #stav.zadna { color: #888; }
-  #info { font-size: 0.85rem; color: #999; text-align: center; line-height: 1.5; }
-  #banner { font-size: 0.8rem; color: #ffcc66; text-align: center; min-height: 1.4em; margin-top: 4px; }
-  label { display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: 10px; font-size: 0.9rem; }
-  button { display: block; margin: 14px auto 0; padding: 10px 20px; font-size: 1rem; border-radius: 8px; border: none; background: #2d7dfb; color: white; }
-</style>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no" />
+<title>Pozorovatel — kamerový asistent</title>
+<meta name="description" content="Namiř kamerou a appka ti řekne, co vidí, změří rozměry a upozorní na překážky v cestě." />
+<meta name="theme-color" content="#08090b" />
+<link rel="stylesheet" href="style.css" />
 </head>
 <body>
-<div id="wrap">
-  <div class="video-box">
-    <video id="video" playsinline autoplay muted></video>
-    <canvas id="overlay"></canvas>
+
+<div id="stage">
+  <video id="video" autoplay playsinline muted></video>
+  <canvas id="overlay"></canvas>
+
+  <div id="boot-screen">
+    <div id="boot-msg">Spouštím kameru…</div>
+    <div id="boot-error" hidden></div>
   </div>
-  <div id="stav" class="zadna">-</div>
-  <div id="banner"></div>
-  <div id="info">
-    Rychlost: <span id="rychlost">--</span> km/h &middot;
-    stav detekce: <span id="detekce-stav">cekam na kameru</span>
+
+  <div id="top-bar">
+    <div id="status-pill"><span id="status-dot"></span><span id="status-text">Připojuji…</span></div>
+    <button id="btn-settings" class="icon-btn" aria-label="Nastavení">⚙️</button>
   </div>
-  <label><input type="checkbox" id="vzdy-detekovat" /> detekovat i za jizdy / bez GPS</label>
-  <button id="start">Spustit kameru</button>
+
+  <div id="ai-panel" hidden>
+    <div id="ai-text"></div>
+    <button id="ai-close" class="icon-btn">✕</button>
+  </div>
+
+  <div id="hint-bar"></div>
+
+  <div id="bottom-bar">
+    <button id="mode-objects" class="mode-btn active" data-mode="objects">
+      <span class="mode-icon">🔎</span><span>Objekty</span>
+    </button>
+    <button id="mode-color" class="mode-btn" data-mode="color">
+      <span class="mode-icon">🎨</span><span>Barva</span>
+    </button>
+    <button id="mode-measure" class="mode-btn" data-mode="measure">
+      <span class="mode-icon">📏</span><span>Měřit</span>
+    </button>
+    <button id="mode-walk" class="mode-btn" data-mode="walk">
+      <span class="mode-icon">🦯</span><span>Asistent</span>
+    </button>
+    <button id="btn-ai" class="mode-btn wide">
+      <span class="mode-icon">💬</span><span>Popiš, co vidím</span>
+    </button>
+  </div>
 </div>
 
-<!-- Prototype uses the official OpenCV.js build from a CDN - fine for a
-     GitHub Pages research prototype (not an embedded/offline Artifact). -->
-<script async src="https://docs.opencv.org/4.x/opencv.js"></script>
+<div id="settings-overlay" hidden>
+  <div id="settings-panel">
+    <div class="settings-head">
+      <h2>Nastavení</h2>
+      <button id="settings-close" class="icon-btn">✕</button>
+    </div>
+
+    <div class="settings-section">
+      <div class="settings-row">
+        <label for="toggle-voice">Hlasové oznámení</label>
+        <input type="checkbox" id="toggle-voice" checked />
+      </div>
+      <div class="settings-row">
+        <label for="sensitivity">Citlivost asistenta chůze</label>
+        <input type="range" id="sensitivity" min="0.2" max="0.8" step="0.05" value="0.45" />
+      </div>
+      <div class="settings-row">
+        <label for="detect-fps">Rychlost detekce</label>
+        <select id="detect-fps">
+          <option value="150">Vysoká (plynulejší, víc baterie)</option>
+          <option value="300" selected>Střední</option>
+          <option value="600">Nízká (šetří baterii)</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="settings-section">
+      <h3>Kalibrace měření</h3>
+      <p class="settings-hint">
+        Polož vedle sebe předmět, jehož skutečnou šířku znáš (např. platební kartu — 8,56 cm),
+        ťukni na obě jeho krajní hrany na obrazovce a zadej šířku v cm.
+        Měření pak bude přibližné a platí nejlíp pro věci ve stejné vzdálenosti od kamery.
+      </p>
+      <div class="settings-row">
+        <span id="calib-status">Nekalibrováno</span>
+        <button id="btn-calibrate" class="btn-secondary">Kalibrovat</button>
+      </div>
+      <div class="settings-row">
+        <label for="ref-width">Šířka reference (cm)</label>
+        <input type="number" id="ref-width" min="0.5" step="0.1" value="8.56" />
+      </div>
+    </div>
+
+    <div class="settings-section">
+      <h3>AI popis obrazu</h3>
+      <p class="settings-hint">
+        Pro tlačítko „Popiš, co vidím" appka potřebuje tvůj vlastní Anthropic API klíč
+        (<a href="https://console.anthropic.com/" target="_blank" rel="noopener">console.anthropic.com</a>).
+        Appka ho ukládá jen v tomto prohlížeči (localStorage), nikam jinam ho neposílá.
+        Volání appka posílá přímo z prohlížeče do Anthropic API — klíč je proto vidět v síťovém provozu appky,
+        nepoužívej klíč, na kterém ti záleží ve sdíleném/veřejném prohlížeči.
+      </p>
+      <div class="settings-row">
+        <label for="api-key">Anthropic API klíč</label>
+        <input type="password" id="api-key" placeholder="sk-ant-..." autocomplete="off" />
+      </div>
+    </div>
+
+    <div class="settings-section">
+      <h3>Co appka umí a co ne</h3>
+      <p class="settings-hint">
+        Objekty appka pozná průběžně jen mezi ~80 běžnými kategoriemi (lidé, auta, zvířata, nábytek…).
+        Konkrétní druh stromu, značku auta nebo název ulice appka umí říct jen přes „Popiš, co vidím"
+        (jednorázový AI rozbor snímku, ne živě). Měření je jen odhad z kamery, ne laserové měření —
+        přesnost klesá, čím víc se liší vzdálenost měřeného předmětu od reference.
+      </p>
+    </div>
+  </div>
+</div>
+
+<canvas id="capture-canvas" hidden></canvas>
+
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.20.0/dist/tf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.3/dist/coco-ssd.min.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

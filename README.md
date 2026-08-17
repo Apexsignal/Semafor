@@ -1,4 +1,4 @@
-# Semafor asistent — PoC rozpoznavani barvy
+# Semafor asistent — PoC rozpoznavani barvy + obecny kamerovy asistent
 
 Puvodni napad: krabicka s kamerou + BT/WiFi vysilacem, napajena z USB/12V
 zasuvky v aute, co sedi na palubce starsiho auta (bez zabudovaneho
@@ -6,10 +6,17 @@ asistenta), rozpoznava barvu semaforu pred autem a hlasi ji (na displeji
 telefonu nebo hlasem), aby ridic nemusel porad civet nahoru a cekat na
 zmenu.
 
-Tenhle repozitar je **jen software prototyp jadra** teto myslenky — algoritmu,
-ktery z obrazu pozna, jestli sviti cervena, oranzova nebo zelena. Zadny
-hardware (kamera, mikrokontroler, BT/WiFi modul) zatim nikde neni, viz
-"Dalsi kroky" nize.
+Tenhle repozitar zacal **jen jako software prototyp jadra** teto myslenky —
+algoritmu, ktery z obrazu pozna, jestli sviti cervena, oranzova nebo zelena
+(viz sekce "Desktop / Python PoC" nize, beze zmeny). Zadny hardware (kamera,
+mikrokontroler, BT/WiFi modul) zatim nikde neni, viz "Dalsi kroky" nize.
+
+**Rozsireni:** `web/` uz neni jen detektor semaforu — appka ho prepracovala
+na **obecny kamerovy asistent** ("Pozorovatel"), ktery misto jednoho ucelu
+(barva semaforu) umi vic rezimu naraz — viz sekce "`web/` — obecny kamerovy
+asistent" nize. Puvodni myslenka (jen semafor, jen pro ridice ve stojicim
+aute) zustava zdokumentovana v teto sekci a v Python PoC — appka ji
+nezahodila, jen ji rozsirila.
 
 ## Co to umi
 
@@ -28,39 +35,52 @@ hardware (kamera, mikrokontroler, BT/WiFi modul) zatim nikde neni, viz
   detekci do obrazu a (volitelne, `--voice`) hlasi zmenu stavu nahlas
   pres `pyttsx3` (offline TTS, zadne API klice).
 
-### `web/` — mobilni prototyp (telefon misto vyhrazeneho hardwaru)
+### `web/` — obecny kamerovy asistent ("Pozorovatel")
 
-Napad: zadny samostatny kamerovy modul, jen telefon v drzaku na palubce
-se zadnim fotakem smerem ven pres sklo — presne jak funguji bezne dashcam
-appky. `web/index.html` + `web/app.js` je samostatna webova stranka (zadny
-build krok), co:
+Puvodni verze `web/` uměla jen jedno: barvu semaforu, jen kdyz auto stoji.
+Appka ji na uzivatelovo prani prepracovala na **obecny kamerovy asistent**
+— zadny build krok, cisty `index.html` + `style.css` + `app.js`, ktery
+funguje na mobilu i desktopu primo v prohlizeci. Ctyri rezimy:
 
-- pres `getUserMedia` vezme zadni kameru telefonu primo v prohlizeci,
-- pres `Geolocation` API cte rychlost auta a detekci **spousti jen kdyz
-  auto stoji** (rychlost pod ~5 km/h) — presne scenar "cekam na semafor",
-  setri to baterku/vykon kdyz se jede. Kdyz GPS rychlost neni k dispozici
-  (indoor test, chybejici fix), detekuje se poradne s upozornenim v UI;
-  jde i rucne vynutit zaskrtavatkem "detekovat i za jizdy / bez GPS".
-- pouzitou stejnou HSV + Houghovy-kruznice logiku jako `detector.py`, jen
-  prepsanou do JS pres [OpenCV.js](https://docs.opencv.org/4.x/opencv.js)
-  (nacita se z oficialniho CDN, zadny build/npm potreba),
-  aby oba prototypy davaly srovnatelne vysledky,
-- hlasi zmenu stavu hlasem pres `SpeechSynthesis` (`cs-CZ`), stejny
-  princip debounce jako `webcam_demo.py`.
+- **Objekty** — prubezne (pres [TensorFlow.js](https://www.tensorflow.org/js)
+  + model [COCO-SSD](https://github.com/tensorflow/tfjs-models/tree/master/coco-ssd),
+  na CDN, zadny vlastni backend) appka nahlas rika, co pozna (auto, osoba,
+  pes, kolo…) a kresli kolem toho ramecky. COCO-SSD zna jen ~80 beznych
+  kategorii — konkretni druh stromu, znacku auta apod. nepozna.
+- **Barva** — tuknes kamkoliv na obraz, appka rekne nejblizsi nazev barvy
+  (vzorkovani pixelu ze snimku + nejblizsi pojmenovana barva v HSV/RGB
+  prostoru).
+- **Merit** — dvouklikova kalibrace podle predmetu se znamou sirkou (napr.
+  platebni karta), pak appka dvema tuknutimi odhadne sirku/vysku predmetu a
+  vykresli caru s odhadem v cm. Neni to laserove mereni, jen odhad z kamery.
+- **Asistent** — chodecky rezim: appka nahlas upozornuje, kdyz se neco
+  velkeho priblizuje uprostred zaberu ("Pozor, prekazka vpred") — heuristika
+  z velikosti/pozice detekovaneho ramecku, ne skutecne mereni vzdalenosti.
+- **"Popis, co vidim"** — jednorazovy snimek appka posle (pres vlastni
+  Anthropic API klic uzivatele, ulozeny jen v `localStorage` prohlizece) do
+  Claude Vision a appka dostane bohaty popis i veci, ktere prubezna detekce
+  nezna (druh stromu, znacka auta, co tece v rece, text na cedule…).
 
-Overeno end-to-end v headless Chromiu (Playwright + falesna kamera
-napojena na synteticke vzorky z `generate_samples.py`) — vsechny tri
-barvy spravne rozpoznany primo pres getUserMedia+OpenCV.js pipeline,
-ne jen v Pythonu.
+Puvodni myslenka "jen semafor, jen kdyz auto stoji" (GPS rychlost pod
+~5 km/h, HSV+Houghovy kruznice pres OpenCV.js) appku porad inspirovala k
+tomuhle rozsireni, ale kod appka nahradila — specificky semaforovy detektor
+v `web/` uz neni, zustava jen v Python PoC nize (`detector.py` a spol.),
+kde funguje beze zmeny.
+
+Overeno end-to-end v headless Chromiu (Playwright, s naimitovanou kamerou a
+naimitovanym COCO-SSD modelem — realna sit k CDN v tomhle vyvojovem
+sandboxu nejde) — prepinani rezimu, kalibrace/mereni (vcetne matematiky
+prevodu souradnic pri `object-fit:cover`), vzorkovani barvy a AI-klic guard
+appka takhle overila bez chyb v konzoli. Zivou kameru na realnem telefonu
+appka v tomhle prostredi otestovat nemohla.
 
 **Jak to spustit na skutecnem telefonu:** stranka potrebuje HTTPS (kamera
 v prohlizeci na file:// nebo http:// bezne nejde), takze `web/` je urcene
-k nahrani na GitHub Pages (nebo jiny staticky HTTPS hosting) a otevreni
+k nahrani na staticky HTTPS hosting (Netlify, GitHub Pages...) a otevreni
 odkazu primo v mobilnim prohlizeci. Zadna instalace, zadny app store.
 **Znamy limit:** prohlizec nejde nechat bezet na pozadi/pri zamknute
 obrazovce (na rozdil od nativni appky) — displej tedy musi svitit
-s otevrenou strankou. Pro overeni samotneho napadu to staci; beh na
-pozadi by uz vyzadoval skutecnou Android/iOS appku.
+s otevrenou strankou.
 
 ## Jak spustit
 
@@ -87,7 +107,7 @@ cd web && python3 -m http.server 8000
 # otevrit http://localhost:8000 v prohlizeci na pocitaci s webkamerou
 ```
 
-## Jak algoritmus funguje
+## Jak algoritmus funguje (Python PoC — puvodni semaforovy detektor)
 
 1. Prevod snimku do HSV a rozostreni pro potlaceni sumu.
 2. Houghova transformace najde kruhove oblasti v obraze (kandidati na
@@ -99,7 +119,7 @@ cd web && python3 -m http.server 8000
    Nesviticí svitilny maji nizkou sytost/jas, takze do zadneho barevneho
    rozsahu nespadnou a detektor je ignoruje.
 
-## Znama omezeni (tohle je PoC, ne hotove reseni)
+## Znama omezeni Python PoC (tohle je PoC, ne hotove reseni)
 
 - **Nepozna tvar semaforu jako celek** — nekontroluje, ze tri kruhy jsou
   svisle nad sebou v jednom cernem pouzdre. Cokoli kulateho a syte
