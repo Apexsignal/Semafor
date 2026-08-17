@@ -58,7 +58,12 @@ funguje na mobilu i desktopu primo v prohlizeci. Ctyri rezimy:
   RGB vzdalenost totiz plete tmave/teplo nasvicene bile povrchy s hnedou.
 - **Merit** — dvouklikova kalibrace podle predmetu se znamou sirkou (napr.
   platebni karta), pak appka dvema tuknutimi odhadne sirku/vysku predmetu a
-  vykresli caru s odhadem v cm. Neni to laserove mereni, jen odhad z kamery.
+  vykresli caru s odhadem v cm. Neni to laserove mereni, jen odhad z kamery —
+  a protoze appka nema hloubkovy senzor, kalibrace plati jen pro veci ve
+  STEJNE vzdalenosti a podobne velikosti jako reference (kalibrace kartou
+  blizko u oka a pak mereni skrine pres cely pokoj da radove spatne cislo).
+  Tlacitko Kalibrovat je proto primo v rezimu Merit (ne jen v nastaveni),
+  aby slo znovu kalibrovat pokazde, kdyz se zmeni vzdalenost/scena.
 - **Asistent** — chodecky rezim: appka nahlas upozornuje, kdyz se neco
   velkeho priblizuje uprostred zaberu ("Pozor, prekazka vpred") — heuristika
   z velikosti/pozice detekovaneho ramecku, ne skutecne mereni vzdalenosti.

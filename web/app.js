@@ -532,12 +532,14 @@ function setMode(mode) {
   });
   state.measurePoints = [];
   if (mode !== "measure") { state.calibrating = false; state.calibratePoints = []; }
+  document.getElementById("measure-bar").hidden = mode !== "measure";
+  if (mode === "measure") updateCalibStatus();
   const hints = {
     objects: "Appka nahlas řekne, co pozná (auto, osoba, pes…).",
     color: "Ťukni kamkoliv na obraz — appka řekne barvu.",
     measure: state.calibration.pxPerCm
       ? "Ťukni na dva krajní body předmětu, který chceš změřit."
-      : "Appka ještě není kalibrovaná — otevři nastavení (ozubené kolo) a klikni na Kalibrovat.",
+      : "Appka ještě není kalibrovaná — klikni Kalibrovat výše.",
     walk: "Appka bude nahlas upozorňovat na překážky v cestě.",
   };
   showHint(hints[mode] || "");
@@ -622,10 +624,26 @@ function loadSettings() {
   document.getElementById("api-key").value = localStorage.getItem(LS_API_KEY) || "";
 }
 function updateCalibStatus() {
-  const el = document.getElementById("calib-status");
-  el.textContent = state.calibration.pxPerCm
+  const settingsText = state.calibration.pxPerCm
     ? `Kalibrováno (referenční šířka ${state.calibration.refWidthCm} cm)`
     : "Nekalibrováno";
+  document.getElementById("calib-status").textContent = settingsText;
+
+  const quickEl = document.getElementById("measure-calib-info");
+  quickEl.textContent = state.calibration.pxPerCm
+    ? `Kalibrace: ${state.calibration.refWidthCm} cm — přeměř jinde? Klikni Kalibrovat.`
+    : "Nekalibrováno — klikni Kalibrovat.";
+}
+
+function startCalibration() {
+  state.calibrating = true;
+  state.calibratePoints = [];
+  closeSettings();
+  setMode("measure");
+  showHint(
+    "Ťukni na levý okraj reference, pak na pravý. Použij něco POBLÍŽ toho, co chceš měřit — stejná vzdálenost od kamery i podobná velikost dají přesnější odhad (na nábytek radši dveře/podlahovou dlaždici než platební kartu).",
+    0
+  );
 }
 
 /* ---------- Wiring ---------- */
@@ -664,13 +682,8 @@ function wireUI() {
 
   document.getElementById("ref-width").value = state.calibration.refWidthCm;
 
-  document.getElementById("btn-calibrate").addEventListener("click", () => {
-    state.calibrating = true;
-    state.calibratePoints = [];
-    closeSettings();
-    setMode("measure");
-    showHint("Ťukni na levý okraj reference, pak na pravý.", 0);
-  });
+  document.getElementById("btn-calibrate").addEventListener("click", startCalibration);
+  document.getElementById("btn-calibrate-quick").addEventListener("click", startCalibration);
 
   document.getElementById("api-key").addEventListener("change", e => {
     localStorage.setItem(LS_API_KEY, e.target.value.trim());

@@ -30,6 +30,11 @@
     <button id="ai-close" class="icon-btn">✕</button>
   </div>
 
+  <div id="measure-bar" hidden>
+    <span id="measure-calib-info">Nekalibrováno</span>
+    <button id="btn-calibrate-quick" class="btn-secondary">Kalibrovat</button>
+  </div>
+
   <div id="hint-bar"></div>
 
   <div id="bottom-bar">
@@ -80,9 +85,15 @@
     <div class="settings-section">
       <h3>Kalibrace měření</h3>
       <p class="settings-hint">
-        Polož vedle sebe předmět, jehož skutečnou šířku znáš (např. platební kartu — 8,56 cm),
-        ťukni na obě jeho krajní hrany na obrazovce a zadej šířku v cm.
-        Měření pak bude přibližné a platí nejlíp pro věci ve stejné vzdálenosti od kamery.
+        Polož vedle sebe předmět, jehož skutečnou šířku znáš, ťukni na obě jeho
+        krajní hrany na obrazovce a zadej šířku v cm. Kalibrace platí jen pro
+        věci ve <strong>stejné vzdálenosti od kamery a podobné velikosti</strong>
+        jako reference — appka nemá hloubkový senzor, takže kalibrace kartou
+        blízko u oka a pak měření skříně přes celý pokoj dá řádově špatné
+        číslo. Na drobnosti použij platební kartu (8,56 cm), na nábytek/pokoj
+        radši něco většího poblíž (dveře ~80 cm, dlaždice, výška zásuvky).
+        V režimu Měřit je teď tlačítko Kalibrovat i přímo nad ovládacími
+        tlačítky, aby šlo znovu kalibrovat pokaždé, když změníš vzdálenost.
       </p>
       <div class="settings-row">
         <span id="calib-status">Nekalibrováno</span>
