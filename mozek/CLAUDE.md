@@ -109,6 +109,15 @@ sami — bez investora, bez najímání, bez výrobního partnera. V promptu jde
 o sekci `## TVRDÉ OMEZENÍ ZADÁNÍ` a je to vylučovací filtr (nápad, který
 podmínky nesplňuje, se do výstupu vůbec nedostane), ne jen bonus do skóre.
 
+**Druhé zpřesnění:** zahraniční trendy (web search) jsou zdroj inspirace
+a ověření poptávky, ne povinná šablona "existuje to v USA, zkopírujme to".
+Hlavní hodnota nápadu je v tom, že ho MOZEK doopravdy rozpracuje — pole
+"solution" má popisovat konkrétní fungování produktu, ne jen obecnou
+větu. Sekce `## ROZPRACOVÁNÍ NÁPADU` v promptu tohle vynucuje a
+"europe_transfer"/"source_example" jsou teď nepovinné (null), pokud
+nápad není přímým přenosem jednoho konkrétního zahraničního produktu,
+ale vlastní syntézou/inovací.
+
 ---
 
 ## 3) DATABÁZOVÉ SCHÉMA (`/supabase/schema.sql`)
