@@ -65,7 +65,7 @@ export default async function IdeaDetailPage({ params }: { params: { id: string 
       </div>
 
       <div className="columns-1 gap-5 lg:columns-2">
-        <Section title="Přehled" icon="📋">
+        <Section title="Přehled" icon="📋" accent="accent2">
           <Field label="Zdrojový region" value={idea.source_region} />
           <Field label="Konkrétní příklad ze zahraničí" value={idea.source_example} />
           {europe && (
@@ -79,14 +79,14 @@ export default async function IdeaDetailPage({ params }: { params: { id: string 
           )}
         </Section>
 
-        <Section title="Problém & řešení" icon="🎯">
+        <Section title="Problém & řešení" icon="🎯" accent="accent">
           <Field label="Problém" value={idea.problem} />
           <Field label="Řešení" value={idea.solution} />
           <Field label="Cílový zákazník" value={idea.target_customer} />
           <Field label="Důkaz poptávky" value={idea.demand_evidence} />
         </Section>
 
-        <Section title="Trh, konkurence & rizika" icon="⚔️">
+        <Section title="Trh, konkurence & rizika" icon="⚔️" accent="warn">
           <Field label="Konkurence" value={idea.competition} />
           <Field label="Naše výhoda" value={idea.our_advantage} />
           <BulletList label="Výhody" items={idea.pros} tone="good" />
@@ -94,7 +94,7 @@ export default async function IdeaDetailPage({ params }: { params: { id: string 
           <BulletList label="Hlavní rizika" items={idea.risks} tone="warn" />
         </Section>
 
-        <Section title="Monetizace & scénáře příjmů" icon="💰">
+        <Section title="Monetizace & scénáře příjmů" icon="💰" accent="good">
           <Field label="Monetizační model" value={idea.monetization_model} />
           <Field label="Odhad ceny" value={idea.price_estimate} />
           {revenue && (
@@ -106,14 +106,14 @@ export default async function IdeaDetailPage({ params }: { params: { id: string 
           )}
         </Section>
 
-        <Section title="Náklady & technická náročnost" icon="⚙️">
+        <Section title="Náklady & technická náročnost" icon="⚙️" accent="bad">
           <ChipList label="Tech stack" items={idea.tech_stack} />
           <Field label="Potřebný tým" value={idea.team_needed} />
           <Field label="Proč tahle obtížnost" value={idea.difficulty_reasoning} />
           <Field label="Proč tyhle náklady" value={idea.cost_reasoning} />
         </Section>
 
-        <Section title="Jak to postavit a uspět" icon="🚀">
+        <Section title="Jak to postavit a uspět" icon="🚀" accent="accent2">
           {idea.build_steps && idea.build_steps.length > 0 && (
             <div>
               <div className="mb-2 text-xs font-medium uppercase tracking-wide text-mozek-muted">
@@ -128,7 +128,7 @@ export default async function IdeaDetailPage({ params }: { params: { id: string 
           <Field label="Plán škálování" value={idea.scaling_plan} />
         </Section>
 
-        <Section title="Skóre (rozpad)" icon="📊">
+        <Section title="Skóre (rozpad)" icon="📊" accent="accent">
           <SubScoreBar label="Problém" value={idea.score_problem} />
           <SubScoreBar label="Velikost trhu" value={idea.score_market_size} />
           <SubScoreBar label="Monetizace" value={idea.score_monetization} />
