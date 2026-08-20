@@ -9,6 +9,44 @@ export function Section({ title, icon, children }: { title: string; icon: string
   );
 }
 
+import type { RevenueTimeline } from "@/lib/types";
+
+/** One revenue-scenario card: a plain string (older ideas) or a 6M/1R/3R timeline. */
+export function RevenueCell({ label, value }: { label: string; value: string | RevenueTimeline | null | undefined }) {
+  if (!value) {
+    return (
+      <div className="rounded-lg border border-mozek-border p-2 text-center">
+        <div className="text-xs text-mozek-muted">{label}</div>
+        <div className="mt-1 text-sm font-medium">—</div>
+      </div>
+    );
+  }
+  if (typeof value === "string") {
+    return (
+      <div className="rounded-lg border border-mozek-border p-2 text-center">
+        <div className="text-xs text-mozek-muted">{label}</div>
+        <div className="mt-1 text-sm font-medium">{value}</div>
+      </div>
+    );
+  }
+  return (
+    <div className="rounded-lg border border-mozek-border p-2">
+      <div className="text-center text-xs text-mozek-muted">{label}</div>
+      <div className="mt-1.5 flex flex-col gap-1 text-xs">
+        {value.month_6 && (
+          <div><span className="text-mozek-muted">6 měsíců: </span>{value.month_6}</div>
+        )}
+        {value.year_1 && (
+          <div><span className="text-mozek-muted">1 rok: </span>{value.year_1}</div>
+        )}
+        {value.year_3 && (
+          <div><span className="text-mozek-muted">3 roky: </span>{value.year_3}</div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export function Field({ label, value }: { label: string; value: React.ReactNode }) {
   if (value == null || value === "") return null;
   return (

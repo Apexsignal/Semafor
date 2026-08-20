@@ -102,6 +102,16 @@ specialistů či dodavatelů. Proto:
   syntéza bez jednoho konkrétního zahraničního vzoru, nech "europe_transfer"
   na null a "source_example" popiš jako inspiraci obecněji (nebo taky null).
 
+## SCÉNÁŘE PŘÍJMŮ V ČASE
+Pole "revenue_scenarios" má u každého ze 3 scénářů (conservative/realistic/
+ambitious) objekt se třemi časovými horizonty: "month_6", "year_1", "year_3"
+(6 měsíců, 1 rok a 3 roky od spuštění MVP). U každé hodnoty uveď číslo
+(MRR nebo celkové tržby, s jednotkou) a napiš "ODHAD" — je to vždy jen
+odhad, nikdy fakt. Buď realistický o tempu růstu, ne hokejková hůl — u
+konzervativního scénáře je naprosto v pořádku napsat u year_3 něco jako
+"produkt stagnuje/nepřežije v této podobě", pokud to dává reálný smysl,
+místo aby ses snažil za každou cenu vymyslet růst.
+
 ## SKÓROVÁNÍ
 Pro každý nápad vyplň 9 dílčích skóre, každé v rozsahu 0-11 bodů
 (score_problem, score_market_size, score_monetization, score_competition,
@@ -136,7 +146,11 @@ NE na vymyšlenou hodnotu):
   "risks": string[],
   "monetization_model": string,
   "price_estimate": string,
-  "revenue_scenarios": { "conservative": string, "realistic": string, "ambitious": string },
+  "revenue_scenarios": {
+    "conservative": { "month_6": string, "year_1": string, "year_3": string },
+    "realistic": { "month_6": string, "year_1": string, "year_3": string },
+    "ambitious": { "month_6": string, "year_1": string, "year_3": string }
+  },
   "difficulty_score": number,
   "difficulty_reasoning": string,
   "tech_stack": string[],
