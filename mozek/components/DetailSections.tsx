@@ -1,6 +1,6 @@
 export function Section({ title, icon, children }: { title: string; icon: string; children: React.ReactNode }) {
   return (
-    <section className="card p-5">
+    <section className="card mb-5 break-inside-avoid p-5">
       <h2 className="mb-3 flex items-center gap-2 font-semibold">
         <span>{icon}</span> {title}
       </h2>

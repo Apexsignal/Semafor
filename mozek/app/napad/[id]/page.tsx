@@ -64,7 +64,7 @@ export default async function IdeaDetailPage({ params }: { params: { id: string 
         <StatTile label="Měsíční náklady" value={idea.monthly_cost_czk ? `${idea.monthly_cost_czk} Kč` : "—"} />
       </div>
 
-      <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
+      <div className="columns-1 gap-5 lg:columns-2">
         <Section title="Přehled" icon="📋">
           <Field label="Zdrojový region" value={idea.source_region} />
           <Field label="Konkrétní příklad ze zahraničí" value={idea.source_example} />
@@ -86,14 +86,11 @@ export default async function IdeaDetailPage({ params }: { params: { id: string 
           <Field label="Důkaz poptávky" value={idea.demand_evidence} />
         </Section>
 
-        <Section title="Trh & konkurence" icon="⚔️">
+        <Section title="Trh, konkurence & rizika" icon="⚔️">
           <Field label="Konkurence" value={idea.competition} />
           <Field label="Naše výhoda" value={idea.our_advantage} />
           <BulletList label="Výhody" items={idea.pros} tone="good" />
           <BulletList label="Nevýhody" items={idea.cons} tone="bad" />
-        </Section>
-
-        <Section title="Rizika" icon="⚠️">
           <BulletList label="Hlavní rizika" items={idea.risks} tone="warn" />
         </Section>
 
@@ -118,18 +115,11 @@ export default async function IdeaDetailPage({ params }: { params: { id: string 
           )}
         </Section>
 
-        <Section title="Technická náročnost" icon="⚙️">
-          <Field label="Obtížnost" value={idea.difficulty_score != null ? `${idea.difficulty_score}/10` : null} />
-          <Field label="Zdůvodnění" value={idea.difficulty_reasoning} />
+        <Section title="Náklady & technická náročnost" icon="⚙️">
           <ChipList label="Tech stack" items={idea.tech_stack} />
           <Field label="Potřebný tým" value={idea.team_needed} />
-          <Field label="Čas do MVP" value={idea.time_to_mvp} />
-        </Section>
-
-        <Section title="Finance" icon="💸">
-          <Field label="Náklady na MVP" value={idea.mvp_cost_czk ? `${idea.mvp_cost_czk} Kč` : null} />
-          <Field label="Měsíční náklady" value={idea.monthly_cost_czk ? `${idea.monthly_cost_czk} Kč` : null} />
-          <Field label="Zdůvodnění" value={idea.cost_reasoning} />
+          <Field label="Proč tahle obtížnost" value={idea.difficulty_reasoning} />
+          <Field label="Proč tyhle náklady" value={idea.cost_reasoning} />
         </Section>
 
         <Section title="Jak to postavit a uspět" icon="🚀">
@@ -161,9 +151,6 @@ export default async function IdeaDetailPage({ params }: { params: { id: string 
             <span>MOZEK SCORE celkem</span>
             <span className={scoreColor(idea.mozek_score)}>{idea.mozek_score ?? "—"}/100</span>
           </div>
-        </Section>
-
-        <Section title="Zdroje" icon="🔗">
           <BulletList label="Ověřené zdroje" items={idea.sources_checked} />
         </Section>
       </div>

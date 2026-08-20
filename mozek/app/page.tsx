@@ -9,11 +9,15 @@ import { formatDate } from "@/lib/format";
 export const dynamic = "force-dynamic";
 
 export default async function DashboardPage() {
-  const [stats, daily, recent] = await Promise.all([
+  const [stats, daily, recentRaw] = await Promise.all([
     getDashboardStats(),
     getTopOfLatestDay(),
     queryIdeas({ sortField: "mozek_score", sortDir: "desc", limit: 24 }),
   ]);
+
+  // Don't repeat ideas already shown in the MOZEK DAILY box right above.
+  const dailyIds = new Set(daily.ideas.map((idea) => idea.id));
+  const recent = recentRaw.filter((idea) => !dailyIds.has(idea.id));
 
   return (
     <div className="flex flex-col gap-8">
@@ -60,23 +64,25 @@ export default async function DashboardPage() {
         )}
       </section>
 
-      <section className="flex flex-col gap-3">
-        <div className="flex items-center justify-between">
-          <h2 className="font-semibold">Nejnovější a nejsilnější nápady</h2>
-          <Link href="/filtr" className="btn text-xs">Filtrovat a hledat →</Link>
+      {daily.ideas.length === 0 && recent.length === 0 && (
+        <div className="card p-6 text-sm text-mozek-muted">
+          Zatím žádné nápady v databázi. Jakmile agent poprvé proběhne, objeví se zde.
         </div>
-        {recent.length === 0 ? (
-          <div className="card p-6 text-sm text-mozek-muted">
-            Zatím žádné nápady v databázi. Jakmile agent poprvé proběhne, objeví se zde.
+      )}
+
+      {recent.length > 0 && (
+        <section className="flex flex-col gap-3">
+          <div className="flex items-center justify-between">
+            <h2 className="font-semibold">Další silné nápady</h2>
+            <Link href="/filtr" className="btn text-xs">Filtrovat a hledat →</Link>
           </div>
-        ) : (
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {recent.map((idea) => (
               <IdeaCard key={idea.id} idea={idea} />
             ))}
           </div>
-        )}
-      </section>
+        </section>
+      )}
     </div>
   );
 }

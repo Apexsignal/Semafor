@@ -74,9 +74,12 @@ export async function getDashboardStats(): Promise<DashboardStats> {
       ? withDifficulty.reduce((a, b) => ((b.difficulty_score ?? 99) < (a.difficulty_score ?? 99) ? b : a))
       : null;
 
+  // Agent-generated categories are free-text "Segment / Sub / Tag" strings
+  // that are near-unique per idea — grouping by the top-level segment only
+  // is what actually makes this a chart instead of a list of 1s.
   const categoryMap = new Map<string, number>();
   for (const r of rows) {
-    const key = r.category?.trim() || "Nezařazeno";
+    const key = r.category?.split("/")[0]?.trim() || "Nezařazeno";
     categoryMap.set(key, (categoryMap.get(key) ?? 0) + 1);
   }
   const sortedCategories = [...categoryMap.entries()].sort((a, b) => b[1] - a[1]);
