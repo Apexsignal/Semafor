@@ -1,8 +1,39 @@
-export function Section({ title, icon, children }: { title: string; icon: string; children: React.ReactNode }) {
+export type SectionAccent = "accent" | "accent2" | "good" | "warn" | "bad";
+
+const ACCENT_BORDER: Record<SectionAccent, string> = {
+  accent: "border-l-mozek-accent",
+  accent2: "border-l-mozek-accent2",
+  good: "border-l-mozek-good",
+  warn: "border-l-mozek-warn",
+  bad: "border-l-mozek-bad",
+};
+
+const ACCENT_BADGE: Record<SectionAccent, string> = {
+  accent: "bg-mozek-accent/15 text-mozek-accent",
+  accent2: "bg-mozek-accent2/15 text-mozek-accent2",
+  good: "bg-mozek-good/15 text-mozek-good",
+  warn: "bg-mozek-warn/15 text-mozek-warn",
+  bad: "bg-mozek-bad/15 text-mozek-bad",
+};
+
+export function Section({
+  title,
+  icon,
+  accent = "accent2",
+  children,
+}: {
+  title: string;
+  icon: string;
+  accent?: SectionAccent;
+  children: React.ReactNode;
+}) {
   return (
-    <section className="card mb-5 break-inside-avoid p-5">
+    <section className={`card mb-5 break-inside-avoid border-l-4 p-5 ${ACCENT_BORDER[accent]}`}>
       <h2 className="mb-3 flex items-center gap-2 font-semibold">
-        <span>{icon}</span> {title}
+        <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-sm ${ACCENT_BADGE[accent]}`}>
+          {icon}
+        </span>
+        {title}
       </h2>
       <div className="flex flex-col gap-3 text-sm leading-relaxed text-mozek-text/90">{children}</div>
     </section>

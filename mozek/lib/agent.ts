@@ -183,7 +183,12 @@ NE na vymyšlenou hodnotu):
 // https://aistudio.google.com/rate-limit for the current free-tier lineup.
 const DEFAULT_MODEL = "gemini-3.6-flash";
 const DEFAULT_MAX_TOKENS = 16000;
-const DEFAULT_MAX_WEB_SEARCHES = 20;
+// Free tier also caps this model at 20 requests/DAY (not just per-minute).
+// Each search round costs one Gemini call, plus one more for the final
+// answer — so this bounds a single run to ~5 Gemini calls, letting the
+// 2x/day cron schedule fit comfortably inside the daily budget with room
+// to spare for manual runs/testing. Revisit once on a paid model (Claude).
+const DEFAULT_MAX_WEB_SEARCHES = 4;
 
 export interface RunAgentOptions {
   existingIdeas: Array<{ title: string; one_liner: string }>;
