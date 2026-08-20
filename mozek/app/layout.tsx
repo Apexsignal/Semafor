@@ -21,9 +21,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               </span>
             </Link>
             <nav className="flex items-center gap-1 text-sm">
-              <Link href="/" className="btn">Dashboard</Link>
-              <Link href="/filtr" className="btn">Filtr</Link>
-              <Link href="/moje" className="btn">Moje nápady</Link>
+              <Link href="/" className="btn whitespace-nowrap">Dashboard</Link>
+              <Link href="/filtr" className="btn whitespace-nowrap">Filtr</Link>
+              <Link href="/moje" className="btn whitespace-nowrap">
+                <span className="sm:hidden">Moje</span>
+                <span className="hidden sm:inline">Moje nápady</span>
+              </Link>
             </nav>
           </div>
         </header>
