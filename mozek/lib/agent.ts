@@ -1,8 +1,10 @@
 import {
+  ApiError,
   GoogleGenAI,
   Type,
   type Content,
   type FunctionDeclaration,
+  type GenerateContentResponse,
   type Part,
 } from "@google/genai";
 import type { AgentIdeaDraft } from "./types";
@@ -275,6 +277,52 @@ async function tavilySearch(apiKey: string, query: string): Promise<TavilyResult
   return data.results ?? [];
 }
 
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/** Google's 429 body embeds e.g. `"retryDelay":"9s"` — pull that out if present. */
+function parseRetryDelayMs(message: string): number | null {
+  const match = message.match(/"retryDelay"\s*:\s*"(\d+(?:\.\d+)?)s"/);
+  if (!match) return null;
+  return Math.ceil(Number.parseFloat(match[1]) * 1000);
+}
+
+// Free tier: 5 requests/minute per model (confirmed live via 429
+// RESOURCE_EXHAUSTED / GenerateRequestsPerMinutePerProjectPerModel-FreeTier).
+// Our tool-call loop makes one generateContent call per turn, so both a
+// proactive minimum gap between calls and reactive retry-on-429 are needed
+// to get through a multi-search run without failing outright.
+const MIN_GEMINI_CALL_INTERVAL_MS = 13_000;
+const MAX_RATE_LIMIT_RETRIES = 6;
+
+let lastGeminiCallAt = 0;
+
+async function generateContentThrottled(
+  client: GoogleGenAI,
+  params: Parameters<GoogleGenAI["models"]["generateContent"]>[0]
+): Promise<GenerateContentResponse> {
+  const wait = MIN_GEMINI_CALL_INTERVAL_MS - (Date.now() - lastGeminiCallAt);
+  if (wait > 0) await sleep(wait);
+
+  for (let attempt = 0; ; attempt++) {
+    lastGeminiCallAt = Date.now();
+    try {
+      return await client.models.generateContent(params);
+    } catch (err) {
+      const isRateLimited = err instanceof ApiError && err.status === 429;
+      if (!isRateLimited || attempt >= MAX_RATE_LIMIT_RETRIES) throw err;
+
+      const suggested = err instanceof Error ? parseRetryDelayMs(err.message) : null;
+      const delay = suggested ?? Math.min(60_000, 5_000 * 2 ** attempt);
+      console.warn(
+        `[agent] Gemini rate-limited (429), retrying in ${delay}ms (attempt ${attempt + 1}/${MAX_RATE_LIMIT_RETRIES})...`
+      );
+      await sleep(delay);
+    }
+  }
+}
+
 export async function runMozekAgent(options: RunAgentOptions): Promise<RunAgentResult> {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
@@ -300,7 +348,7 @@ export async function runMozekAgent(options: RunAgentOptions): Promise<RunAgentR
   const maxTurns = maxWebSearches + 5;
 
   for (let turn = 0; turn < maxTurns; turn++) {
-    const response = await client.models.generateContent({
+    const response = await generateContentThrottled(client, {
       model,
       contents,
       config: {
