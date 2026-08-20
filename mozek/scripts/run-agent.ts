@@ -10,7 +10,12 @@
  *  5. Telegram-notify for every newly inserted idea with flag_strong = true.
  *  6. Log the whole run to agent_runs.
  */
-import "dotenv/config";
+import { config as loadEnv } from "dotenv";
+// Load .env.local first (local dev convention, matches Next.js), then fall
+// back to .env. In CI/hosting (GitHub Actions, Vercel) neither file exists
+// on disk — env vars are injected directly — so both calls are harmless no-ops.
+loadEnv({ path: ".env.local" });
+loadEnv({ path: ".env" });
 import { getSupabaseServiceClient } from "../lib/supabase";
 import { runMozekAgent } from "../lib/agent";
 import { buildRejectedFeedbackSummary } from "../lib/feedbackSummary";

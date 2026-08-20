@@ -21,7 +21,7 @@ Telegram notifikaci. Celý build spec je v [`CLAUDE.md`](./CLAUDE.md).
 ## 3. Gemini API klíč (zdarma)
 
 Vytvoř klíč zdarma (bez karty) na [aistudio.google.com/apikey](https://aistudio.google.com/apikey) →
-`GEMINI_API_KEY`. Agent používá model `gemini-2.5-flash` (nejštědřejší
+`GEMINI_API_KEY`. Agent používá model `gemini-3.6-flash` (nejštědřejší
 free tier) se zapnutým Google Search grounding toolem (viz `lib/agent.ts`).
 Free tier má denní/minutové limity requestů — při 2–4 bězích denně je s
 rezervou dostatečný; kdyby Google limity/název modelu časem změnil, uprav

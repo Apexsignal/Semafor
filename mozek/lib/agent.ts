@@ -154,11 +154,12 @@ NE na vymyšlenou hodnotu):
   "sources_checked": string[]
 }`;
 
-// gemini-2.5-flash is the model with the most generous free tier as of
-// writing (no credit card required, key from https://aistudio.google.com).
-// Override via GEMINI_MODEL if Google renames/retires it later — check
+// Free tier, no credit card required (key from https://aistudio.google.com).
+// Google renames/retires Gemini models fairly often — gemini-2.5-flash was
+// replaced by gemini-3.6-flash shortly before this was written. Override via
+// GEMINI_MODEL without a code change if it happens again; check
 // https://aistudio.google.com/rate-limit for the current free-tier lineup.
-const DEFAULT_MODEL = "gemini-2.5-flash";
+const DEFAULT_MODEL = "gemini-3.6-flash";
 const DEFAULT_MAX_TOKENS = 16000;
 
 export interface RunAgentOptions {
