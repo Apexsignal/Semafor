@@ -63,7 +63,8 @@ v `agent_runs` přibyl řádek se `status = success`.
 
 Řešeno přes GitHub Actions: [`../.github/workflows/mozek-agent-cron.yml`](../.github/workflows/mozek-agent-cron.yml)
 (workflow soubory musí být v kořeni repa, ne v `/mozek`). Spouští se v
-6:00, 11:00, 16:00 a 21:00 UTC a dá se spustit i ručně (`workflow_dispatch`).
+6:00 a 16:00 UTC (2x/den kvůli dennímu limitu Gemini free tieru — viz
+`.github/workflows/mozek-agent-cron.yml`) a dá se spustit i ručně (`workflow_dispatch`).
 
 V nastavení repozitáře (**Settings → Secrets and variables → Actions**)
 přidej:
