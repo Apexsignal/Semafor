@@ -1,4 +1,10 @@
-import { GoogleGenAI } from "@google/genai";
+import {
+  GoogleGenAI,
+  Type,
+  type Content,
+  type FunctionDeclaration,
+  type Part,
+} from "@google/genai";
 import type { AgentIdeaDraft } from "./types";
 
 export const MOZEK_SYSTEM_PROMPT = `Jsi MOZEK — autonomní AI inovační agent. Nejsi chatbot čekající na otázku
@@ -161,12 +167,14 @@ NE na vymyšlenou hodnotu):
 // https://aistudio.google.com/rate-limit for the current free-tier lineup.
 const DEFAULT_MODEL = "gemini-3.6-flash";
 const DEFAULT_MAX_TOKENS = 16000;
+const DEFAULT_MAX_WEB_SEARCHES = 20;
 
 export interface RunAgentOptions {
   existingIdeas: Array<{ title: string; one_liner: string }>;
   rejectedFeedbackSummary?: string | null;
   model?: string;
   maxTokens?: number;
+  maxWebSearches?: number;
 }
 
 export interface RunAgentResult {
@@ -214,33 +222,133 @@ function extractJsonArray(text: string): unknown {
   return JSON.parse(trimmed.slice(start, end + 1));
 }
 
+// Gemini's own Google Search grounding tool requires a billing-enabled
+// Google Cloud project even for its nominally-free monthly quota (confirmed
+// live: it 429s with RESOURCE_EXHAUSTED on a plain free-tier API key, while
+// text generation and custom function calling work fine for free). So web
+// search is implemented as a normal function-calling tool backed by Tavily
+// (https://tavily.com), which has a genuinely free, no-card tier.
+const WEB_SEARCH_FUNCTION_NAME = "web_search";
+
+const webSearchDeclaration: FunctionDeclaration = {
+  name: WEB_SEARCH_FUNCTION_NAME,
+  description:
+    "Search the live web for current information — news, product pages, " +
+    "forum threads, reviews. Use this whenever you need real, up-to-date " +
+    "facts instead of relying on memory.",
+  parameters: {
+    type: Type.OBJECT,
+    properties: {
+      query: {
+        type: Type.STRING,
+        description: "The search query (English usually finds more, but Czech is fine too).",
+      },
+    },
+    required: ["query"],
+  },
+};
+
+interface TavilyResult {
+  title?: string;
+  url?: string;
+  content?: string;
+}
+
+async function tavilySearch(apiKey: string, query: string): Promise<TavilyResult[]> {
+  const res = await fetch("https://api.tavily.com/search", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({
+      query,
+      search_depth: "basic",
+      max_results: 5,
+    }),
+  });
+  if (!res.ok) {
+    const bodyText = await res.text().catch(() => "");
+    throw new Error(`Tavily search failed (HTTP ${res.status}): ${bodyText.slice(0, 300)}`);
+  }
+  const data = (await res.json()) as { results?: TavilyResult[] };
+  return data.results ?? [];
+}
+
 export async function runMozekAgent(options: RunAgentOptions): Promise<RunAgentResult> {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
     throw new Error("Missing GEMINI_API_KEY env var.");
   }
+  const tavilyApiKey = process.env.TAVILY_API_KEY;
+  if (!tavilyApiKey) {
+    throw new Error("Missing TAVILY_API_KEY env var.");
+  }
 
   const model = options.model ?? process.env.GEMINI_MODEL ?? DEFAULT_MODEL;
   const maxTokens = options.maxTokens ?? DEFAULT_MAX_TOKENS;
+  const maxWebSearches = options.maxWebSearches ?? DEFAULT_MAX_WEB_SEARCHES;
 
   const client = new GoogleGenAI({ apiKey });
 
-  // Gemini's built-in Google Search grounding tool — free on the Gemini
-  // Developer API free tier. Note: Gemini currently doesn't allow combining
-  // this tool with structured-output enforcement (responseSchema), so JSON
-  // is enforced via the prompt instead and parsed defensively below, same
-  // as before.
-  const response = await client.models.generateContent({
-    model,
-    contents: buildUserPrompt(options),
-    config: {
-      systemInstruction: MOZEK_SYSTEM_PROMPT,
-      tools: [{ googleSearch: {} }],
-      maxOutputTokens: maxTokens,
-    },
-  });
+  const contents: Content[] = [{ role: "user", parts: [{ text: buildUserPrompt(options) }] }];
 
-  const rawText = response.text ?? "";
+  let searchesUsed = 0;
+  let rawText = "";
+  // A handful of extra turns beyond the search budget so the model can
+  // still produce its final JSON answer after its last search.
+  const maxTurns = maxWebSearches + 5;
+
+  for (let turn = 0; turn < maxTurns; turn++) {
+    const response = await client.models.generateContent({
+      model,
+      contents,
+      config: {
+        systemInstruction: MOZEK_SYSTEM_PROMPT,
+        tools: [{ functionDeclarations: [webSearchDeclaration] }],
+        maxOutputTokens: maxTokens,
+      },
+    });
+
+    const calls = response.functionCalls;
+    if (!calls || calls.length === 0) {
+      rawText = response.text ?? "";
+      break;
+    }
+
+    const modelParts = response.candidates?.[0]?.content?.parts ?? calls.map((call) => ({ functionCall: call }));
+    contents.push({ role: "model", parts: modelParts });
+
+    const responseParts: Part[] = [];
+    for (const call of calls) {
+      const query = typeof call.args?.query === "string" ? call.args.query : "";
+      let output: Record<string, unknown>;
+      if (searchesUsed >= maxWebSearches) {
+        output = { error: "Search budget for this run is used up — proceed with what you already found." };
+      } else {
+        searchesUsed++;
+        try {
+          output = { results: await tavilySearch(tavilyApiKey, query) };
+        } catch (err) {
+          output = { error: err instanceof Error ? err.message : String(err) };
+        }
+      }
+      responseParts.push({
+        functionResponse: {
+          id: call.id,
+          name: call.name ?? WEB_SEARCH_FUNCTION_NAME,
+          response: output,
+        },
+      });
+    }
+    contents.push({ role: "user", parts: responseParts });
+  }
+
+  if (!rawText) {
+    throw new Error(
+      `MOZEK agent did not produce a final answer within ${maxTurns} turns (search/turn budget exhausted).`
+    );
+  }
 
   const parsed = extractJsonArray(rawText);
   if (!Array.isArray(parsed)) {

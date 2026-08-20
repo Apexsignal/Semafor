@@ -32,11 +32,19 @@ Autonomní systém, který:
 - **Hosting**: Vercel/Netlify pro web, serverless funkce pro agent běh
 
 > **Změna po prvním nasazení:** místo placeného Anthropic API (Claude) se
-> skutečně používá **Google Gemini API** (`gemini-2.5-flash`, `lib/agent.ts`)
-> — má trvalý free tier bez karty (klíč z aistudio.google.com) a vestavěný
-> Google Search grounding tool místo Anthropicova `web_search` toolu.
+> skutečně používá **Google Gemini API** (`gemini-3.6-flash`, `lib/agent.ts`)
+> — má trvalý free tier bez karty (klíč z aistudio.google.com).
 > `ANTHROPIC_API_KEY`/`ANTHROPIC_MODEL` v textu níže tedy odpovídají
 > `GEMINI_API_KEY`/`GEMINI_MODEL` ve skutečném kódu — viz `.env.example`.
+>
+> **Druhá změna:** Gemini má sice vlastní Google Search grounding tool, ale
+> ten (ověřeno naostro) vrací HTTP 429, pokud projekt nemá propojenou
+> platební kartu — na rozdíl od čistého generování textu to na free tieru
+> bez karty vůbec nefunguje. Web search je proto implementovaný jako
+> vlastní function-calling tool (`web_search`) napojený na
+> [Tavily](https://tavily.com), který má opravdový bezkartový free tier
+> (1000 hledání/měsíc). Viz `TAVILY_API_KEY` v `.env.example` a
+> `tavilySearch()`/`webSearchDeclaration` v `lib/agent.ts`.
 
 Postav to jako jeden monorepo projekt:
 ```

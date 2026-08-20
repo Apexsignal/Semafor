@@ -22,21 +22,30 @@ Telegram notifikaci. Celý build spec je v [`CLAUDE.md`](./CLAUDE.md).
 
 Vytvoř klíč zdarma (bez karty) na [aistudio.google.com/apikey](https://aistudio.google.com/apikey) →
 `GEMINI_API_KEY`. Agent používá model `gemini-3.6-flash` (nejštědřejší
-free tier) se zapnutým Google Search grounding toolem (viz `lib/agent.ts`).
-Free tier má denní/minutové limity requestů — při 2–4 bězích denně je s
-rezervou dostatečný; kdyby Google limity/název modelu časem změnil, uprav
-`GEMINI_MODEL` v env proměnných (aktuální nabídku modelů vidíš na
-[aistudio.google.com/rate-limit](https://aistudio.google.com/rate-limit)).
+free tier). Free tier má denní/minutové limity requestů — při 2–4 bězích
+denně je s rezervou dostatečný; kdyby Google limity/název modelu časem
+změnil, uprav `GEMINI_MODEL` v env proměnných (aktuální nabídku modelů
+vidíš na [aistudio.google.com/rate-limit](https://aistudio.google.com/rate-limit)).
 
-## 4. Env proměnné
+## 4. Tavily API klíč (zdarma) — web search pro agenta
+
+Gemini má sice vlastní Google Search nástroj, ale ten (na rozdíl od
+samotného modelu) vyžaduje propojenou platební kartu i na svém "free"
+tieru — ověřeno naostro, bez karty vrací chybu 429. Proto agent pro
+vyhledávání používá [Tavily](https://tavily.com), který má opravdový
+free tier bez karty (1000 hledání/měsíc, s rezervou stačí na 2–4 běhy
+denně). Založ si účet na [app.tavily.com](https://app.tavily.com)
+(stačí e-mail nebo Google/GitHub) a zkopíruj klíč → `TAVILY_API_KEY`.
+
+## 5. Env proměnné
 
 ```
 cp .env.example .env.local
 ```
-a vyplň hodnoty z kroků 1–3. `.env.local` čte jak `next dev`, tak
-`npm run agent:run` (přes `dotenv/config`).
+a vyplň hodnoty z kroků 1–4. `.env.local` čte jak `next dev`, tak
+`npm run agent:run` (explicitně přes `dotenv`, viz `scripts/run-agent.ts`).
 
-## 5. Instalace a lokální běh
+## 6. Instalace a lokální běh
 
 ```bash
 npm install
@@ -50,7 +59,7 @@ Doporučený první krok po nastavení env: spusť `npm run agent:run` ručně a
 zkontroluj v Supabase Table Editoru, že se v `ideas` objevily nové řádky a
 v `agent_runs` přibyl řádek se `status = success`.
 
-## 6. Cron (automatické spouštění 2–4x denně)
+## 7. Cron (automatické spouštění 2–4x denně)
 
 Řešeno přes GitHub Actions: [`../.github/workflows/mozek-agent-cron.yml`](../.github/workflows/mozek-agent-cron.yml)
 (workflow soubory musí být v kořeni repa, ne v `/mozek`). Spouští se v
@@ -58,7 +67,7 @@ v `agent_runs` přibyl řádek se `status = success`.
 
 V nastavení repozitáře (**Settings → Secrets and variables → Actions**)
 přidej:
-- **Secrets**: `GEMINI_API_KEY`, `NEXT_PUBLIC_SUPABASE_URL`,
+- **Secrets**: `GEMINI_API_KEY`, `TAVILY_API_KEY`, `NEXT_PUBLIC_SUPABASE_URL`,
   `SUPABASE_SERVICE_ROLE_KEY`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`
 - **Variables** (nepovinné): `GEMINI_MODEL`, `NEXT_PUBLIC_WEB_URL`
 
@@ -66,7 +75,7 @@ Alternativa: Vercel Cron Jobs (zavolat endpoint, který uvnitř spustí
 stejnou logiku jako `scripts/run-agent.ts`) — pokud nasazuješ web na
 Vercel a chceš mít cron na stejném místě.
 
-## 7. Nasazení webu
+## 8. Nasazení webu
 
 Web je čistý Next.js App Router projekt, jde nasadit na Vercel/Netlify:
 - Root directory: `mozek`
