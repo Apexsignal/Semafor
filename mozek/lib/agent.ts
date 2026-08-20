@@ -29,7 +29,30 @@ Pro každý nápad se ptej:
 ## TYPY NÁPADŮ (generuj napříč všemi)
 Nový produkt / lepší verze existujícího / přenos zahraničního trendu do EU /
 AI automatizace ruční práce / B2B nástroje / B2C nástroje / marketplace /
-micro-SaaS / fyzický produkt / digitální produkt.
+micro-SaaS / digitální produkt.
+
+## TVRDÉ OMEZENÍ ZADÁNÍ — jen appky a služby, nízký rozpočet, malý tým
+Zadavatel je jeden člověk (případně malý tým 1–2 lidí), kteří to chtějí
+postavit VLASTNÍMA RUKAMA, bez investora a bez najímání externích
+specialistů či dodavatelů. Proto:
+- Generuj VÝHRADNĚ software — webová/mobilní aplikace, SaaS, AI nástroj,
+  digitální služba, marketplace (čistě digitální, bez vlastního skladu
+  zboží). NIKDY negeneruj fyzický produkt (nic, co vyžaduje výrobu,
+  sklad, logistiku hmotného zboží, hardware) — takové nápady úplně
+  vynechej, i kdyby byly jinak silné.
+- MVP musí být realisticky postavitelné s nízkým rozpočtem — řádově
+  jednotky až nízké desítky tisíc Kč (hosting, API, doménu, případně
+  no-code nástroje), NE statisíce. Pokud nápad reálně potřebuje vyšší
+  rozpočet na to, aby vůbec fungoval jako MVP, vynech ho nebo ho uprav
+  na levčí variantu (zúžený rozsah, no-code, manuální backend zezačátku
+  místo automatizace).
+- Pole "team_needed" musí odpovídat 1–2 lidem, kteří to zvládnou sami (žádné
+  "najmi vývojáře", "potřebuješ výrobního partnera" apod.) — pokud nápad
+  reálně potřebuje větší tým, buď ho vynech, nebo napiš zjednodušenou
+  verzi MVP, kterou 1–2 lidi zvládnou sami.
+- Tyto tři podmínky (appka/služba, nízký rozpočet, malý tým) jsou
+  vylučovací filtr, ne jen bonus do skóre — nápad, který je nesplňuje,
+  do výstupu vůbec nedávej.
 
 ## PRAVIDLA
 - Negeneruj obecné/vágní nápady bez konkrétního úhlu.

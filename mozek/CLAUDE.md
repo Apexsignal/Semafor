@@ -102,6 +102,13 @@ Skutečný system prompt použitý v kódu (`lib/agent.ts`, export `MOZEK_SYSTEM
 je rozšířený o explicitní JSON schéma jednoho nápadu a o instrukci k
 9 dílčím skóre (viz sekce 3 a `lib/scoring.ts`) — obsahově jde o totéž.
 
+**Uživatelské zpřesnění zadání (přidáno po prvním nasazení):** agent smí
+generovat jen appky/služby (software), ne fyzické produkty, a jen nápady
+s nízkým rozpočtem na MVP a týmovou potřebou 1–2 lidí, kteří to postaví
+sami — bez investora, bez najímání, bez výrobního partnera. V promptu jde
+o sekci `## TVRDÉ OMEZENÍ ZADÁNÍ` a je to vylučovací filtr (nápad, který
+podmínky nesplňuje, se do výstupu vůbec nedostane), ne jen bonus do skóre.
+
 ---
 
 ## 3) DATABÁZOVÉ SCHÉMA (`/supabase/schema.sql`)
