@@ -7,6 +7,7 @@ import { FeedbackButtons } from "@/components/FeedbackButtons";
 import { Section, Field, BulletList, ChipList, SubScoreBar, Steps, RevenueCell } from "@/components/DetailSections";
 import { StatTile } from "@/components/StatTile";
 import { formatDate, scoreColor } from "@/lib/format";
+import { estimateBuildPrice } from "@/lib/buildPrice";
 
 export const dynamic = "force-dynamic";
 
@@ -23,6 +24,7 @@ export default async function IdeaDetailPage({ params }: { params: { id: string 
 
   const europe = idea.europe_transfer;
   const revenue = idea.revenue_scenarios;
+  const buildPrice = estimateBuildPrice(idea);
 
   return (
     <div className="flex flex-col gap-5">
@@ -127,6 +129,30 @@ export default async function IdeaDetailPage({ params }: { params: { id: string 
           <ChipList label="Marketingové kanály" items={idea.marketing_channels} />
           <Field label="Plán škálování" value={idea.scaling_plan} />
         </Section>
+
+        {buildPrice && (
+          <Section title="Cena za zakázku" icon="🤝" accent="good">
+            <p className="text-xs text-mozek-muted">
+              Orientační cena, pokud by tenhle projekt stavěl na zakázku
+              freelancer nebo agentura místo DIY (odhad z náročnosti a
+              času do MVP, ne fakt — ověř proti reálným nabídkám).
+            </p>
+            <div className="grid grid-cols-2 gap-2">
+              <div className="rounded-lg border border-mozek-border p-2 text-center">
+                <div className="text-xs text-mozek-muted">Freelancer</div>
+                <div className="mt-1 text-lg font-bold">
+                  {buildPrice.freelancer_czk.toLocaleString("cs-CZ")} Kč
+                </div>
+              </div>
+              <div className="rounded-lg border border-mozek-border p-2 text-center">
+                <div className="text-xs text-mozek-muted">Agentura</div>
+                <div className="mt-1 text-lg font-bold">
+                  {buildPrice.agency_czk.toLocaleString("cs-CZ")} Kč
+                </div>
+              </div>
+            </div>
+          </Section>
+        )}
 
         <Section title="Skóre (rozpad)" icon="📊" accent="accent">
           <SubScoreBar label="Problém" value={idea.score_problem} />
