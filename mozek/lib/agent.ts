@@ -1,4 +1,4 @@
-import Anthropic from "@anthropic-ai/sdk";
+import { GoogleGenAI } from "@google/genai";
 import type { AgentIdeaDraft } from "./types";
 
 export const MOZEK_SYSTEM_PROMPT = `Jsi MOZEK — autonomní AI inovační agent. Nejsi chatbot čekající na otázku
@@ -154,16 +154,18 @@ NE na vymyšlenou hodnotu):
   "sources_checked": string[]
 }`;
 
-const DEFAULT_MODEL = "claude-opus-5";
+// gemini-2.5-flash is the model with the most generous free tier as of
+// writing (no credit card required, key from https://aistudio.google.com).
+// Override via GEMINI_MODEL if Google renames/retires it later — check
+// https://aistudio.google.com/rate-limit for the current free-tier lineup.
+const DEFAULT_MODEL = "gemini-2.5-flash";
 const DEFAULT_MAX_TOKENS = 16000;
-const DEFAULT_MAX_WEB_SEARCHES = 25;
 
 export interface RunAgentOptions {
   existingIdeas: Array<{ title: string; one_liner: string }>;
   rejectedFeedbackSummary?: string | null;
   model?: string;
   maxTokens?: number;
-  maxWebSearches?: number;
 }
 
 export interface RunAgentResult {
@@ -212,43 +214,32 @@ function extractJsonArray(text: string): unknown {
 }
 
 export async function runMozekAgent(options: RunAgentOptions): Promise<RunAgentResult> {
-  const apiKey = process.env.ANTHROPIC_API_KEY;
+  const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
-    throw new Error("Missing ANTHROPIC_API_KEY env var.");
+    throw new Error("Missing GEMINI_API_KEY env var.");
   }
 
-  const model = options.model ?? process.env.ANTHROPIC_MODEL ?? DEFAULT_MODEL;
+  const model = options.model ?? process.env.GEMINI_MODEL ?? DEFAULT_MODEL;
   const maxTokens = options.maxTokens ?? DEFAULT_MAX_TOKENS;
-  const maxWebSearches = options.maxWebSearches ?? DEFAULT_MAX_WEB_SEARCHES;
 
-  const client = new Anthropic({ apiKey });
+  const client = new GoogleGenAI({ apiKey });
 
-  // The server-side web search tool (web_search_20250305) isn't in every
-  // version of the SDK's TypeScript types, so it's built as a plain object
-  // and passed through untyped rather than fighting the Tool union type.
-  const webSearchTool = {
-    type: "web_search_20250305",
-    name: "web_search",
-    max_uses: maxWebSearches,
-  };
-
-  const message = await client.messages.create({
+  // Gemini's built-in Google Search grounding tool — free on the Gemini
+  // Developer API free tier. Note: Gemini currently doesn't allow combining
+  // this tool with structured-output enforcement (responseSchema), so JSON
+  // is enforced via the prompt instead and parsed defensively below, same
+  // as before.
+  const response = await client.models.generateContent({
     model,
-    max_tokens: maxTokens,
-    system: MOZEK_SYSTEM_PROMPT,
-    tools: [webSearchTool] as unknown as Anthropic.Messages.Tool[],
-    messages: [
-      {
-        role: "user",
-        content: buildUserPrompt(options),
-      },
-    ],
+    contents: buildUserPrompt(options),
+    config: {
+      systemInstruction: MOZEK_SYSTEM_PROMPT,
+      tools: [{ googleSearch: {} }],
+      maxOutputTokens: maxTokens,
+    },
   });
 
-  const rawText = message.content
-    .filter((block): block is Anthropic.Messages.TextBlock => block.type === "text")
-    .map((block) => block.text)
-    .join("\n");
+  const rawText = response.text ?? "";
 
   const parsed = extractJsonArray(rawText);
   if (!Array.isArray(parsed)) {

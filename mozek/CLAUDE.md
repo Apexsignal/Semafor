@@ -31,6 +31,13 @@ Autonomní systém, který:
   není nutná)
 - **Hosting**: Vercel/Netlify pro web, serverless funkce pro agent běh
 
+> **Změna po prvním nasazení:** místo placeného Anthropic API (Claude) se
+> skutečně používá **Google Gemini API** (`gemini-2.5-flash`, `lib/agent.ts`)
+> — má trvalý free tier bez karty (klíč z aistudio.google.com) a vestavěný
+> Google Search grounding tool místo Anthropicova `web_search` toolu.
+> `ANTHROPIC_API_KEY`/`ANTHROPIC_MODEL` v textu níže tedy odpovídají
+> `GEMINI_API_KEY`/`GEMINI_MODEL` ve skutečném kódu — viz `.env.example`.
+
 Postav to jako jeden monorepo projekt:
 ```
 /mozek

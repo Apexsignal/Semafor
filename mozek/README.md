@@ -18,11 +18,15 @@ Telegram notifikaci. Celý build spec je v [`CLAUDE.md`](./CLAUDE.md).
 2. Napiš svému botovi zprávu, pak zjisti `chat_id` (např. přes
    `https://api.telegram.org/bot<token>/getUpdates` nebo bota @userinfobot).
 
-## 3. Anthropic API klíč
+## 3. Gemini API klíč (zdarma)
 
-Vytvoř klíč na [console.anthropic.com](https://console.anthropic.com) →
-`ANTHROPIC_API_KEY`. Agent potřebuje model se zapnutým web search tool
-(server-side tool `web_search_20250305`, viz `lib/agent.ts`).
+Vytvoř klíč zdarma (bez karty) na [aistudio.google.com/apikey](https://aistudio.google.com/apikey) →
+`GEMINI_API_KEY`. Agent používá model `gemini-2.5-flash` (nejštědřejší
+free tier) se zapnutým Google Search grounding toolem (viz `lib/agent.ts`).
+Free tier má denní/minutové limity requestů — při 2–4 bězích denně je s
+rezervou dostatečný; kdyby Google limity/název modelu časem změnil, uprav
+`GEMINI_MODEL` v env proměnných (aktuální nabídku modelů vidíš na
+[aistudio.google.com/rate-limit](https://aistudio.google.com/rate-limit)).
 
 ## 4. Env proměnné
 
@@ -54,9 +58,9 @@ v `agent_runs` přibyl řádek se `status = success`.
 
 V nastavení repozitáře (**Settings → Secrets and variables → Actions**)
 přidej:
-- **Secrets**: `ANTHROPIC_API_KEY`, `NEXT_PUBLIC_SUPABASE_URL`,
+- **Secrets**: `GEMINI_API_KEY`, `NEXT_PUBLIC_SUPABASE_URL`,
   `SUPABASE_SERVICE_ROLE_KEY`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`
-- **Variables** (nepovinné): `ANTHROPIC_MODEL`, `NEXT_PUBLIC_WEB_URL`
+- **Variables** (nepovinné): `GEMINI_MODEL`, `NEXT_PUBLIC_WEB_URL`
 
 Alternativa: Vercel Cron Jobs (zavolat endpoint, který uvnitř spustí
 stejnou logiku jako `scripts/run-agent.ts`) — pokud nasazuješ web na
