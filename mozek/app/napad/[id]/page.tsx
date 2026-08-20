@@ -4,7 +4,7 @@ import { getFilterOptions } from "@/lib/queryIdeas";
 import type { Idea } from "@/lib/types";
 import { PriorityBadge } from "@/components/ScoreBadge";
 import { FeedbackButtons } from "@/components/FeedbackButtons";
-import { Section, Field, BulletList, ChipList, SubScoreBar, Steps } from "@/components/DetailSections";
+import { Section, Field, BulletList, ChipList, SubScoreBar, Steps, RevenueCell } from "@/components/DetailSections";
 import { StatTile } from "@/components/StatTile";
 import { formatDate, scoreColor } from "@/lib/format";
 
@@ -98,19 +98,10 @@ export default async function IdeaDetailPage({ params }: { params: { id: string 
           <Field label="Monetizační model" value={idea.monetization_model} />
           <Field label="Odhad ceny" value={idea.price_estimate} />
           {revenue && (
-            <div className="grid grid-cols-3 gap-2 text-center">
-              <div className="rounded-lg border border-mozek-border p-2">
-                <div className="text-xs text-mozek-muted">Konzervativní</div>
-                <div className="mt-1 text-sm font-medium">{revenue.conservative ?? "—"}</div>
-              </div>
-              <div className="rounded-lg border border-mozek-border p-2">
-                <div className="text-xs text-mozek-muted">Realistický</div>
-                <div className="mt-1 text-sm font-medium">{revenue.realistic ?? "—"}</div>
-              </div>
-              <div className="rounded-lg border border-mozek-border p-2">
-                <div className="text-xs text-mozek-muted">Ambiciózní</div>
-                <div className="mt-1 text-sm font-medium">{revenue.ambitious ?? "—"}</div>
-              </div>
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+              <RevenueCell label="Konzervativní" value={revenue.conservative} />
+              <RevenueCell label="Realistický" value={revenue.realistic} />
+              <RevenueCell label="Ambiciózní" value={revenue.ambitious} />
             </div>
           )}
         </Section>

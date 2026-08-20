@@ -38,10 +38,18 @@ export interface EuropeTransfer {
   legal_notes?: string;
 }
 
+// New ideas get a timeline (6 měsíců / 1 rok / 3 roky) per scenario;
+// older DB rows still hold the flat string this replaced. Both render fine.
+export interface RevenueTimeline {
+  month_6?: string;
+  year_1?: string;
+  year_3?: string;
+}
+
 export interface RevenueScenarios {
-  conservative?: string;
-  realistic?: string;
-  ambitious?: string;
+  conservative?: string | RevenueTimeline;
+  realistic?: string | RevenueTimeline;
+  ambitious?: string | RevenueTimeline;
 }
 
 export interface Idea {
