@@ -24,10 +24,13 @@ export const FEEDBACK_LABELS: Record<string, string> = {
   ZAMITNUTO: "🗑 Zamítnuto",
 };
 
+// High score = good news, so it reads as good news: green at the top,
+// fading through the brand teal and blue down to neutral gray — never red/
+// amber, which read as "warning" regardless of what the number means.
 export function scoreColor(score: number | null | undefined): string {
   const s = score ?? 0;
-  if (s >= 85) return "text-mozek-bad";
-  if (s >= 70) return "text-mozek-warn";
+  if (s >= 85) return "text-mozek-good";
+  if (s >= 70) return "text-mozek-accent";
   if (s >= 50) return "text-mozek-accent2";
   return "text-mozek-muted";
 }

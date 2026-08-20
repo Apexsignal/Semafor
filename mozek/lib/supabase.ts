@@ -1,5 +1,15 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import WebSocket from "ws";
 import type { Idea } from "./types";
+
+// @supabase/supabase-js always constructs a RealtimeClient, which throws
+// ("Node.js detected but native WebSocket not found") on any Node runtime
+// without a native global WebSocket (Node <22, and — found the hard way —
+// Netlify's Next.js API route function runtime too, independent of the
+// Node version configured for the build itself). We never use realtime
+// subscriptions, but the client still needs a constructor to hand it;
+// the `ws` package works on every runtime, sidestepping the whole check.
+const REALTIME_TRANSPORT = { realtime: { transport: WebSocket as unknown as typeof globalThis.WebSocket } };
 
 export type Database = {
   public: {
@@ -26,6 +36,7 @@ export function getSupabaseAnonClient(): SupabaseClient {
   if (!browserClient) {
     browserClient = createClient(url, anonKey, {
       auth: { persistSession: false },
+      ...REALTIME_TRANSPORT,
     });
   }
   return browserClient;
@@ -49,5 +60,6 @@ export function getSupabaseServiceClient(): SupabaseClient {
   }
   return createClient(url, serviceKey, {
     auth: { persistSession: false, autoRefreshToken: false },
+    ...REALTIME_TRANSPORT,
   });
 }
