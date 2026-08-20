@@ -52,12 +52,32 @@ export function SubScoreBar({ label, value }: { label: string; value: number | n
   const v = value ?? 0;
   const pct = Math.max(0, Math.min(100, (v / 11) * 100));
   return (
-    <div className="flex items-center gap-2 text-xs">
+    <div className="flex items-center gap-2 text-xs" title={`${label}: ${value ?? "—"}/11`}>
       <span className="w-40 shrink-0 text-mozek-muted">{label}</span>
-      <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-mozek-border">
-        <div className="h-full rounded-full bg-mozek-accent" style={{ width: `${pct}%` }} />
+      <div className="h-[10px] flex-1 overflow-hidden rounded-sm bg-mozek-border/40">
+        <div
+          className="h-full bg-mozek-accent"
+          style={{ width: `${pct}%`, borderRadius: "0 4px 4px 0" }}
+        />
       </div>
-      <span className="w-6 text-right tabular-nums">{value ?? "—"}</span>
+      <span className="w-6 text-right tabular-nums font-medium text-mozek-text">{value ?? "—"}</span>
     </div>
+  );
+}
+
+/** Numbered step-by-step build guide (used for build_steps on the detail page). */
+export function Steps({ items }: { items: string[] | null | undefined }) {
+  if (!items || items.length === 0) return null;
+  return (
+    <ol className="flex flex-col gap-3">
+      {items.map((step, i) => (
+        <li key={i} className="flex gap-3">
+          <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-mozek-accent/15 text-xs font-semibold text-mozek-accent">
+            {i + 1}
+          </span>
+          <span className="pt-0.5 leading-relaxed text-mozek-text/90">{step}</span>
+        </li>
+      ))}
+    </ol>
   );
 }

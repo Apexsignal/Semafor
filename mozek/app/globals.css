@@ -7,8 +7,8 @@
 }
 
 body {
-  background-color: #0b0d12;
-  color: #e6e8ee;
+  background-color: #08090b;
+  color: #f4f4f2;
 }
 
 .card {
@@ -36,6 +36,6 @@ body {
   width: 6px;
 }
 .scrollbar-thin::-webkit-scrollbar-thumb {
-  background-color: #232733;
+  background-color: #232427;
   border-radius: 999px;
 }

@@ -3,6 +3,7 @@ import { getDashboardStats, getTopOfLatestDay } from "@/lib/stats";
 import { queryIdeas } from "@/lib/queryIdeas";
 import { StatsBar } from "@/components/StatsBar";
 import { IdeaCard } from "@/components/IdeaCard";
+import { CategoryChart, PriorityChart } from "@/components/AggregateBarChart";
 import { formatDate } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
@@ -24,6 +25,17 @@ export default async function DashboardPage() {
       </section>
 
       <StatsBar stats={stats} />
+
+      <section className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <div className="card p-4">
+          <h2 className="mb-3 text-sm font-semibold text-mozek-muted">Nápady podle kategorie</h2>
+          <CategoryChart data={stats.categoryBreakdown} />
+        </div>
+        <div className="card p-4">
+          <h2 className="mb-3 text-sm font-semibold text-mozek-muted">Nápady podle priority</h2>
+          <PriorityChart data={stats.priorityBreakdown} />
+        </div>
+      </section>
 
       <section className="card overflow-hidden">
         <div className="flex items-center justify-between border-b border-mozek-border bg-mozek-accent/5 px-4 py-3">

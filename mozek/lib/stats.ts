@@ -1,6 +1,17 @@
 import { getSupabaseAnonClient } from "./supabase";
 import { extractMaxNumber } from "./parseEstimates";
-import type { Idea } from "./types";
+import type { Idea, Priority } from "./types";
+import { PRIORITY_VALUES } from "./types";
+
+export interface CategoryCount {
+  label: string;
+  count: number;
+}
+
+export interface PriorityCount {
+  priority: Priority;
+  count: number;
+}
 
 export interface DashboardStats {
   total: number;
@@ -9,9 +20,15 @@ export interface DashboardStats {
   cheapest: Idea | null;
   simplest: Idea | null;
   immediateCount: number;
+  categoryBreakdown: CategoryCount[];
+  priorityBreakdown: PriorityCount[];
 }
 
 const STATS_FETCH_LIMIT = 2000;
+// Beyond this many distinct categories, the tail folds into "Ostatní" —
+// a bar chart with dozens of rows stops being a chart (see dataviz skill:
+// "more than ~7 classes that all carry meaning -> a table, not more colors").
+const CATEGORY_CHART_TOP_N = 6;
 
 export async function getDashboardStats(): Promise<DashboardStats> {
   const supabase = getSupabaseAnonClient();
@@ -19,12 +36,21 @@ export async function getDashboardStats(): Promise<DashboardStats> {
 
   const { data, error } = await supabase
     .from("ideas")
-    .select("id, mozek_score, date_generated, mvp_cost_czk, difficulty_score, priority, title, one_liner")
+    .select("id, mozek_score, date_generated, mvp_cost_czk, difficulty_score, priority, category, title, one_liner")
     .eq("is_archived", false)
     .limit(STATS_FETCH_LIMIT);
 
   if (error || !data) {
-    return { total: 0, todayCount: 0, avgScore: null, cheapest: null, simplest: null, immediateCount: 0 };
+    return {
+      total: 0,
+      todayCount: 0,
+      avgScore: null,
+      cheapest: null,
+      simplest: null,
+      immediateCount: 0,
+      categoryBreakdown: [],
+      priorityBreakdown: PRIORITY_VALUES.map((priority) => ({ priority, count: 0 })),
+    };
   }
 
   const rows = data as unknown as Idea[];
@@ -48,7 +74,32 @@ export async function getDashboardStats(): Promise<DashboardStats> {
       ? withDifficulty.reduce((a, b) => ((b.difficulty_score ?? 99) < (a.difficulty_score ?? 99) ? b : a))
       : null;
 
-  return { total, todayCount, avgScore, cheapest, simplest, immediateCount };
+  const categoryMap = new Map<string, number>();
+  for (const r of rows) {
+    const key = r.category?.trim() || "Nezařazeno";
+    categoryMap.set(key, (categoryMap.get(key) ?? 0) + 1);
+  }
+  const sortedCategories = [...categoryMap.entries()].sort((a, b) => b[1] - a[1]);
+  const topCategories = sortedCategories.slice(0, CATEGORY_CHART_TOP_N).map(([label, count]) => ({ label, count }));
+  const restCount = sortedCategories.slice(CATEGORY_CHART_TOP_N).reduce((sum, [, count]) => sum + count, 0);
+  const categoryBreakdown = restCount > 0 ? [...topCategories, { label: "Ostatní", count: restCount }] : topCategories;
+
+  const priorityMap = new Map<Priority, number>();
+  for (const r of rows) {
+    if (r.priority) priorityMap.set(r.priority, (priorityMap.get(r.priority) ?? 0) + 1);
+  }
+  const priorityBreakdown = PRIORITY_VALUES.map((priority) => ({ priority, count: priorityMap.get(priority) ?? 0 }));
+
+  return {
+    total,
+    todayCount,
+    avgScore,
+    cheapest,
+    simplest,
+    immediateCount,
+    categoryBreakdown,
+    priorityBreakdown,
+  };
 }
 
 /** TOP 5 of the most recent generation day (the "MOZEK DAILY" box). */

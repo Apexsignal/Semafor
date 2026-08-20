@@ -4,7 +4,8 @@ import { getFilterOptions } from "@/lib/queryIdeas";
 import type { Idea } from "@/lib/types";
 import { PriorityBadge } from "@/components/ScoreBadge";
 import { FeedbackButtons } from "@/components/FeedbackButtons";
-import { Section, Field, BulletList, ChipList, SubScoreBar } from "@/components/DetailSections";
+import { Section, Field, BulletList, ChipList, SubScoreBar, Steps } from "@/components/DetailSections";
+import { StatTile } from "@/components/StatTile";
 import { formatDate, scoreColor } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
@@ -52,6 +53,16 @@ export default async function IdeaDetailPage({ params }: { params: { id: string 
       </div>
 
       <FeedbackButtons idea={idea} existingCategories={options.userCategories} />
+
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <StatTile label="MVP náklady" value={idea.mvp_cost_czk ? `${idea.mvp_cost_czk} Kč` : "—"} />
+        <StatTile label="Čas do MVP" value={idea.time_to_mvp ?? "—"} />
+        <StatTile
+          label="Obtížnost"
+          value={idea.difficulty_score != null ? `${idea.difficulty_score}/10` : "—"}
+        />
+        <StatTile label="Měsíční náklady" value={idea.monthly_cost_czk ? `${idea.monthly_cost_czk} Kč` : "—"} />
+      </div>
 
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
         <Section title="Přehled" icon="📋">
@@ -121,8 +132,15 @@ export default async function IdeaDetailPage({ params }: { params: { id: string 
           <Field label="Zdůvodnění" value={idea.cost_reasoning} />
         </Section>
 
-        <Section title="Go-to-market" icon="🚀">
-          <BulletList label="Kroky ke stavbě" items={idea.build_steps} />
+        <Section title="Jak to postavit a uspět" icon="🚀">
+          {idea.build_steps && idea.build_steps.length > 0 && (
+            <div>
+              <div className="mb-2 text-xs font-medium uppercase tracking-wide text-mozek-muted">
+                Návod krok za krokem
+              </div>
+              <Steps items={idea.build_steps} />
+            </div>
+          )}
           <Field label="Prvních 10 zákazníků" value={idea.first_10_customers} />
           <Field label="Prvních 100 zákazníků" value={idea.first_100_customers} />
           <ChipList label="Marketingové kanály" items={idea.marketing_channels} />

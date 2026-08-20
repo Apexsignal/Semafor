@@ -1,15 +1,6 @@
 import type { DashboardStats } from "@/lib/stats";
 import { extractMaxNumber } from "@/lib/parseEstimates";
-
-function StatTile({ label, value, sub }: { label: string; value: string; sub?: string }) {
-  return (
-    <div className="card p-4">
-      <div className="text-xs uppercase tracking-wide text-mozek-muted">{label}</div>
-      <div className="mt-1 truncate text-xl font-bold">{value}</div>
-      {sub && <div className="mt-0.5 truncate text-xs text-mozek-muted">{sub}</div>}
-    </div>
-  );
-}
+import { StatTile } from "./StatTile";
 
 export function StatsBar({ stats }: { stats: DashboardStats }) {
   const cheapestCost = stats.cheapest ? extractMaxNumber(stats.cheapest.mvp_cost_czk) : null;
