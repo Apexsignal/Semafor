@@ -1,0 +1,41 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+}
+
+body {
+  background-color: #08090b;
+  color: #f4f4f2;
+}
+
+.card {
+  @apply rounded-xl border border-mozek-border bg-mozek-panel;
+}
+
+.badge {
+  @apply inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium;
+}
+
+.btn {
+  @apply inline-flex items-center gap-1.5 rounded-lg border border-mozek-border bg-mozek-panel px-3 py-1.5 text-sm font-medium text-mozek-text transition hover:border-mozek-accent hover:text-mozek-accent disabled:opacity-40 disabled:hover:border-mozek-border disabled:hover:text-mozek-text;
+}
+
+.btn-active {
+  @apply border-mozek-accent text-mozek-accent;
+}
+
+.input {
+  @apply rounded-lg border border-mozek-border bg-mozek-bg px-3 py-1.5 text-sm text-mozek-text placeholder:text-mozek-muted focus:border-mozek-accent focus:outline-none;
+}
+
+.scrollbar-thin::-webkit-scrollbar {
+  height: 6px;
+  width: 6px;
+}
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background-color: #232427;
+  border-radius: 999px;
+}
