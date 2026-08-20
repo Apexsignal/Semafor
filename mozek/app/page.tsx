@@ -28,6 +28,38 @@ export default async function DashboardPage() {
         </p>
       </section>
 
+      <section className="card overflow-hidden border-mozek-good/30">
+        <div className="flex items-center justify-between border-b border-mozek-border bg-mozek-good/5 px-4 py-3">
+          <h2 className="flex items-center gap-2 font-semibold">
+            <span>✅</span> Úspěšný projekt
+          </h2>
+          <span className="badge bg-mozek-good/15 text-mozek-good">Hotovo</span>
+        </div>
+        <div className="flex flex-col gap-3 p-4 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <h3 className="text-lg font-bold">ApexSignal</h3>
+            <p className="mt-1 max-w-2xl text-sm text-mozek-muted">
+              Matematický generátor sázkových tiketů na fotbal — místo tipů
+              &bdquo;od oka&ldquo; statistický model (Poissonovo rozdělení,
+              Dixon-Coles korekce), který denně analyzuje 400+ zápasů a hledá,
+              kde se model neshoduje s kurzem bookmakera.
+            </p>
+            <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-mozek-muted">
+              <span>⏱ Vývoj: 2 měsíce</span>
+              <span>💳 Pay-per-tiket i měsíční členství</span>
+            </div>
+          </div>
+          <a
+            href="https://apexsignal.cz"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="btn shrink-0 whitespace-nowrap"
+          >
+            Otevřít web →
+          </a>
+        </div>
+      </section>
+
       <StatsBar stats={stats} />
 
       <section className="grid grid-cols-1 gap-4 lg:grid-cols-2">
