@@ -185,7 +185,7 @@ export function MojeBoard({ activeIdeas, archivedIdeas }: { activeIdeas: Idea[];
       )}
 
       {tab === "kanban" && (
-        <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-thin">
+        <div className="flex flex-col gap-3 sm:flex-row sm:gap-3 sm:overflow-x-auto sm:pb-2 sm:scrollbar-thin">
           {columns.map((col) => (
             <div
               key={col}
@@ -197,7 +197,7 @@ export function MojeBoard({ activeIdeas, archivedIdeas }: { activeIdeas: Idea[];
                 const id = e.dataTransfer.getData("text/plain");
                 if (id) handleDrop(col, id);
               }}
-              className={`flex w-72 shrink-0 flex-col gap-2 rounded-xl border p-2 ${dragOverColumn === col ? "border-mozek-accent bg-mozek-accent/5" : "border-mozek-border bg-mozek-panel/50"}`}
+              className={`flex w-full flex-col gap-2 rounded-xl border p-2 sm:w-72 sm:shrink-0 ${dragOverColumn === col ? "border-mozek-accent bg-mozek-accent/5" : "border-mozek-border bg-mozek-panel/50"}`}
             >
               <div className="flex items-center justify-between px-1 text-sm font-semibold">
                 <span>{col === UNASSIGNED ? "Bez kategorie" : col}</span>
@@ -234,7 +234,7 @@ export function MojeBoard({ activeIdeas, archivedIdeas }: { activeIdeas: Idea[];
               </div>
             </div>
           ))}
-          <div className="flex w-56 shrink-0 items-start">
+          <div className="flex w-full items-start sm:w-56 sm:shrink-0">
             <button className="btn w-full" onClick={addColumn}>+ Nový sloupec</button>
           </div>
         </div>
