@@ -1,14 +1,15 @@
 name: MOZEK agent run
 
-# Runs the MOZEK agent 4x/day so it keeps picking up fresh sources
-# throughout the day, plus on-demand via workflow_dispatch. See
-# mozek/CLAUDE.md section 4 for what the run itself does.
+# Runs the MOZEK agent 2x/day, plus on-demand via workflow_dispatch. See
+# mozek/CLAUDE.md section 4 for what the run itself does. Lowered from
+# 4x/day: Gemini's free tier caps gemini-3.6-flash at 20 requests/day
+# (separate from its per-minute limit), and a single run's tool-call
+# loop can itself use ~10-25 of those, so 4 runs/day risked exhausting
+# the quota partway through the day.
 on:
   schedule:
     - cron: "0 6 * * *"   # 06:00 UTC
-    - cron: "0 11 * * *"  # 11:00 UTC
     - cron: "0 16 * * *"  # 16:00 UTC
-    - cron: "0 21 * * *"  # 21:00 UTC
   workflow_dispatch: {}
 
 defaults:
