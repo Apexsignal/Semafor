@@ -1,0 +1,43 @@
+name: MOZEK agent run
+
+# Runs the MOZEK agent 4x/day so it keeps picking up fresh sources
+# throughout the day, plus on-demand via workflow_dispatch. See
+# mozek/CLAUDE.md section 4 for what the run itself does.
+on:
+  schedule:
+    - cron: "0 6 * * *"   # 06:00 UTC
+    - cron: "0 11 * * *"  # 11:00 UTC
+    - cron: "0 16 * * *"  # 16:00 UTC
+    - cron: "0 21 * * *"  # 21:00 UTC
+  workflow_dispatch: {}
+
+defaults:
+  run:
+    working-directory: mozek
+
+jobs:
+  run-agent:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: mozek/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run MOZEK agent
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          ANTHROPIC_MODEL: ${{ vars.ANTHROPIC_MODEL }}
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          NEXT_PUBLIC_WEB_URL: ${{ vars.NEXT_PUBLIC_WEB_URL }}
+        run: npm run agent:run
