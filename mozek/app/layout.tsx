@@ -32,15 +32,15 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                 AI Innovation Engine
               </span>
             </Link>
-            <nav className="flex items-center gap-1 text-sm">
-              <Link href="/" className="btn whitespace-nowrap">Dashboard</Link>
-              <Link href="/filtr" className="btn whitespace-nowrap">Filtr</Link>
-              <Link href="/moje" className="btn whitespace-nowrap">
+            <nav className="flex min-w-0 items-center gap-1 overflow-x-auto text-sm">
+              <Link href="/" className="btn shrink-0 whitespace-nowrap">Dashboard</Link>
+              <Link href="/filtr" className="btn shrink-0 whitespace-nowrap">Filtr</Link>
+              <Link href="/moje" className="btn shrink-0 whitespace-nowrap">
                 <span className="sm:hidden">Moje</span>
                 <span className="hidden sm:inline">Moje nápady</span>
               </Link>
               {user ? (
-                <div className="flex items-center gap-2">
+                <div className="flex shrink-0 items-center gap-2">
                   <span
                     className="hidden max-w-[160px] truncate text-xs text-mozek-muted sm:inline"
                     title={user.email ?? undefined}
@@ -48,11 +48,14 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                     {user.email}
                   </span>
                   <form action="/api/auth/logout" method="POST">
-                    <button type="submit" className="btn whitespace-nowrap">Odhlásit</button>
+                    <button type="submit" className="btn shrink-0 whitespace-nowrap">Odhlásit</button>
                   </form>
                 </div>
               ) : (
-                <Link href="/prihlaseni" className="btn whitespace-nowrap">Přihlásit se</Link>
+                <Link href="/prihlaseni" className="btn shrink-0 whitespace-nowrap">
+                  <span className="sm:hidden">Účet</span>
+                  <span className="hidden sm:inline">Přihlásit se</span>
+                </Link>
               )}
             </nav>
           </div>
