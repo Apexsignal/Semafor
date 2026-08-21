@@ -56,12 +56,16 @@ async function main() {
     console.log(
       `[run-agent] Calling MOZEK agent with ${existing?.length ?? 0} existing ideas for dedup context...`
     );
-    const { ideas: drafts, model, provider } = await runMozekAgent({
+    const { ideas: drafts, model, provider, reviewDropped, reviewFixed } = await runMozekAgent({
       existingIdeas: existing ?? [],
       rejectedFeedbackSummary,
     });
 
-    console.log(`[run-agent] Agent returned ${drafts.length} idea(s) via ${provider} (${model}).`);
+    const reviewNote =
+      reviewDropped !== undefined
+        ? ` Self-review: ${reviewFixed ?? 0} fixed, ${reviewDropped} dropped before insert.`
+        : "";
+    console.log(`[run-agent] Agent returned ${drafts.length} idea(s) via ${provider} (${model}).${reviewNote}`);
 
     const rowsToInsert = drafts.map((draft) => buildInsertRow(draft));
 

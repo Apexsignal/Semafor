@@ -178,6 +178,45 @@ NE na vymyšlenou hodnotu):
   "sources_checked": string[]
 }`;
 
+export const MOZEK_REVIEW_SYSTEM_PROMPT = `Jsi kontrolor kvality pro MOZEK, AI agenta, co právě vygeneroval dávku
+podnikatelských nápadů. Dostaneš JSON pole těch nápadů (každý má "index").
+Tvým úkolem je každý nápad kriticky zkontrolovat — NE znovu ho vymýšlet,
+jen posoudit, jestli obstojí — a rozhodnout jeden ze tří verdiktů:
+
+- "OK": nápad je konkrétní, realistický, vnitřně konzistentní a splňuje
+  tvrdé omezení zadání (viz níže). Nech beze změny.
+- "FIX": nápad má konkrétní, opravitelný problém — vágní/obecné pole
+  "solution" bez skutečné mechaniky, rozpor mezi poli (např. team_needed
+  říká "jen 1 člověk", ale difficulty_reasoning popisuje tým 5 lidí;
+  nebo revenue_scenarios má nereálnou hokejovou hůl u konzervativního
+  scénáře), duplicitní/přehnaně obecná kategorie apod. Oprav POUZE ta
+  konkrétní pole přes "fixed_fields", zbytek nech, jak je.
+- "DROP": nápad je nezachranitelný — fyzický produkt (výroba/sklad/
+  hardware), reálně vyžaduje investora nebo tým větší než 1-2 lidi, MVP
+  rozpočet výrazně přes nízké desítky tisíc Kč, nebo je to jen obecná
+  fráze bez skutečného rozpracování ("AI nástroj pro produktivitu" a nic
+  konkrétního navíc). Takový nápad úplně vyřaď.
+
+Buď stejně přísný jako při prvotním generování — cílem není nikoho
+potěšit ani zachovat co nejvíc nápadů, ale odfiltrovat slabé nebo
+nekonzistentní výstupy dřív, než se uloží do databáze. Neopravuj kosmetiku
+(styl, délku) — jen věcné problémy.
+
+## TVRDÉ OMEZENÍ ZADÁNÍ (kontroluj proti tomuhle)
+Výhradně software (web/mobilní app, SaaS, AI nástroj, digitální služba,
+čistě digitální marketplace) — nikdy fyzický produkt. MVP realisticky
+postavitelné s nízkým rozpočtem (jednotky až nízké desítky tisíc Kč, NE
+statisíce). Tým 1-2 lidí, co to postaví sami — žádný investor, žádné
+najímání specialistů/dodavatelů.
+
+## VÝSTUP
+Vrať POUZE validní JSON pole, jeden objekt na každý vstupní nápad (stejný
+počet, stejné "index"), přesně v tomto tvaru, nic jiného mimo JSON:
+[{ "index": number, "verdict": "OK" | "FIX" | "DROP", "reason": string, "fixed_fields": object | null }]
+
+"fixed_fields" u "FIX" obsahuje jen ta pole, která měníš (stejný název a
+typ jako v původním schématu nápadu), u "OK"/"DROP" nastav na null.`;
+
 // Claude Sonnet 5 is the primary provider — paid, so no free-tier daily
 // quota to work around, giving it a much bigger search budget than Gemini.
 const CLAUDE_DEFAULT_MODEL = "claude-sonnet-5";
@@ -212,6 +251,9 @@ export interface RunAgentResult {
   model: string;
   rawText: string;
   provider: "claude" | "gemini";
+  /** Set when the self-review pass ran; omitted if it errored and was skipped. */
+  reviewDropped?: number;
+  reviewFixed?: number;
 }
 
 function buildUserPrompt(options: RunAgentOptions): string {
@@ -548,18 +590,132 @@ async function runWithClaude(options: RunAgentOptions): Promise<RunAgentResult> 
   };
 }
 
+interface ReviewVerdict {
+  index: number;
+  verdict: "OK" | "FIX" | "DROP";
+  reason?: string;
+  fixed_fields?: Record<string, unknown> | null;
+}
+
+function indexedDraftsForReview(drafts: AgentIdeaDraft[]): Array<AgentIdeaDraft & { index: number }> {
+  return drafts.map((draft, index) => ({ index, ...draft }));
+}
+
+async function reviewDraftsWithClaude(drafts: AgentIdeaDraft[], model: string): Promise<ReviewVerdict[]> {
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) throw new Error("Missing ANTHROPIC_API_KEY env var.");
+  const client = new Anthropic({ apiKey });
+  const response = await client.messages.create({
+    model,
+    max_tokens: DEFAULT_MAX_TOKENS,
+    system: MOZEK_REVIEW_SYSTEM_PROMPT,
+    messages: [{ role: "user", content: JSON.stringify(indexedDraftsForReview(drafts)) }],
+  });
+  const text = response.content
+    .filter((block): block is Anthropic.TextBlock => block.type === "text")
+    .map((block) => block.text)
+    .join("\n");
+  const parsed = extractJsonArray(text);
+  if (!Array.isArray(parsed)) throw new Error("Review response was not a JSON array.");
+  return parsed as ReviewVerdict[];
+}
+
+async function reviewDraftsWithGemini(drafts: AgentIdeaDraft[], model: string): Promise<ReviewVerdict[]> {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) throw new Error("Missing GEMINI_API_KEY env var.");
+  const client = new GoogleGenAI({ apiKey });
+  const response = await generateContentThrottled(client, {
+    model,
+    contents: [{ role: "user", parts: [{ text: JSON.stringify(indexedDraftsForReview(drafts)) }] }],
+    config: { systemInstruction: MOZEK_REVIEW_SYSTEM_PROMPT, maxOutputTokens: DEFAULT_MAX_TOKENS },
+  });
+  const parsed = extractJsonArray(response.text ?? "");
+  if (!Array.isArray(parsed)) throw new Error("Review response was not a JSON array.");
+  return parsed as ReviewVerdict[];
+}
+
+function applyReviewVerdicts(
+  drafts: AgentIdeaDraft[],
+  verdicts: ReviewVerdict[]
+): { ideas: AgentIdeaDraft[]; dropped: number; fixed: number } {
+  const byIndex = new Map<number, ReviewVerdict>();
+  for (const verdict of verdicts) {
+    if (typeof verdict.index === "number") byIndex.set(verdict.index, verdict);
+  }
+
+  const ideas: AgentIdeaDraft[] = [];
+  let dropped = 0;
+  let fixed = 0;
+
+  drafts.forEach((draft, index) => {
+    // No verdict for this index (parsing mismatch etc.) -> fail open, keep as-is.
+    const verdict = byIndex.get(index);
+    if (!verdict || verdict.verdict === "OK") {
+      ideas.push(draft);
+      return;
+    }
+    if (verdict.verdict === "DROP") {
+      dropped++;
+      console.log(`[agent] Review DROP #${index} "${draft.title}": ${verdict.reason ?? "no reason given"}`);
+      return;
+    }
+    if (verdict.verdict === "FIX") {
+      fixed++;
+      console.log(`[agent] Review FIX #${index} "${draft.title}": ${verdict.reason ?? "no reason given"}`);
+      ideas.push({ ...draft, ...(verdict.fixed_fields ?? {}) });
+      return;
+    }
+    ideas.push(draft);
+  });
+
+  return { ideas, dropped, fixed };
+}
+
+/**
+ * Second, critical pass over the agent's own output before it's inserted
+ * into the DB — drops unsalvageable ideas (physical product, needs a big
+ * team/investor, too vague) and fixes small inconsistencies (contradicting
+ * fields, unrealistic revenue growth) in place. Runs on the same provider
+ * that produced the drafts. Fails open: if the review call itself errors
+ * (rate limit, bad JSON, etc.) the original unreviewed drafts are kept
+ * rather than losing an otherwise-successful run over a QA step.
+ */
+async function reviewIdeaDrafts(result: RunAgentResult): Promise<RunAgentResult> {
+  if (result.ideas.length === 0) return result;
+  try {
+    const verdicts =
+      result.provider === "claude"
+        ? await reviewDraftsWithClaude(result.ideas, result.model)
+        : await reviewDraftsWithGemini(result.ideas, result.model);
+    const { ideas, dropped, fixed } = applyReviewVerdicts(result.ideas, verdicts);
+    console.log(
+      `[agent] Self-review via ${result.provider}: ${fixed} fixed, ${dropped} dropped, ${ideas.length}/${result.ideas.length} kept.`
+    );
+    return { ...result, ideas, reviewDropped: dropped, reviewFixed: fixed };
+  } catch (err) {
+    console.warn(
+      "[agent] Self-review step failed, keeping unreviewed drafts:",
+      err instanceof Error ? err.message : String(err)
+    );
+    return result;
+  }
+}
+
 /**
  * Claude is the primary provider; Gemini is the automatic backup. If
  * ANTHROPIC_API_KEY isn't set at all, Claude is skipped silently (not
  * configured yet, nothing to alert about). If it IS set but the call fails
  * for any reason (credit ran out, bad key, outage), fall back to Gemini and
  * send a Telegram alert so a human knows to check Claude's billing —
- * otherwise the degradation would be invisible.
+ * otherwise the degradation would be invisible. Whichever provider
+ * succeeds also runs a self-review pass (see reviewIdeaDrafts) before the
+ * result is returned for insertion into the DB.
  */
 export async function runMozekAgent(options: RunAgentOptions): Promise<RunAgentResult> {
+  let result: RunAgentResult;
   if (process.env.ANTHROPIC_API_KEY) {
     try {
-      return await runWithClaude(options);
+      result = await runWithClaude(options);
     } catch (err) {
       const reason = err instanceof Error ? err.message : String(err);
       console.error("[agent] Claude failed, falling back to Gemini:", reason);
@@ -568,7 +724,10 @@ export async function runMozekAgent(options: RunAgentOptions): Promise<RunAgentR
         fallbackProvider: "Gemini",
         reason: reason.slice(0, 300),
       });
+      result = await runWithGemini(options);
     }
+  } else {
+    result = await runWithGemini(options);
   }
-  return runWithGemini(options);
+  return reviewIdeaDrafts(result);
 }
