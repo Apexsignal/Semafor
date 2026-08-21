@@ -105,7 +105,7 @@ export async function getDashboardStats(): Promise<DashboardStats> {
   };
 }
 
-/** TOP 5 of the most recent generation day (the "MOZEK DAILY" box). */
+/** TOP 5 of the most recent generation day (the "BRAIN ENGINE DAILY" box). */
 export async function getTopOfLatestDay(): Promise<{ date: string | null; ideas: Idea[] }> {
   const supabase = getSupabaseAnonClient();
 

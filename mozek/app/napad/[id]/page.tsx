@@ -165,7 +165,7 @@ export default async function IdeaDetailPage({ params }: { params: { id: string 
           <SubScoreBar label="Škálovatelnost" value={idea.score_scalability} />
           <SubScoreBar label="Potenciál pro Evropu" value={idea.score_europe_potential} />
           <div className="mt-2 flex items-center justify-between border-t border-mozek-border pt-2 text-sm font-semibold">
-            <span>MOZEK SCORE celkem</span>
+            <span>BRAIN ENGINE SCORE celkem</span>
             <span className={scoreColor(idea.mozek_score)}>{idea.mozek_score ?? "—"}/100</span>
           </div>
           <BulletList label="Ověřené zdroje" items={idea.sources_checked} />

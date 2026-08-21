@@ -3,7 +3,7 @@ import Link from "next/link";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "MOZEK — AI Innovation Engine",
+  title: "BRAIN ENGINE — AI Innovation Engine",
   description: "Autonomní AI agent, který denně hledá zahraniční trendy a mění je v podnikatelské příležitosti pro Evropu.",
 };
 
@@ -15,7 +15,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-3 sm:px-6">
             <Link href="/" className="flex items-center gap-2 text-lg font-bold tracking-tight">
               <span>🧠</span>
-              <span>MOZEK</span>
+              <span>BRAIN ENGINE</span>
               <span className="hidden text-sm font-normal text-mozek-muted sm:inline">
                 AI Innovation Engine
               </span>
@@ -32,7 +32,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         </header>
         <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6">{children}</main>
         <footer className="mx-auto max-w-7xl px-4 py-8 text-center text-xs text-mozek-muted sm:px-6">
-          MOZEK běží autonomně na cronu — nové nápady se objevují bez zásahu.
+          BRAIN ENGINE běží autonomně na cronu — nové nápady se objevují bez zásahu.
         </footer>
       </body>
     </html>

@@ -9,7 +9,7 @@ export function formatTelegramMessage(idea: Idea, webUrl: string): string {
   const risk = idea.risks && idea.risks.length > 0 ? idea.risks[0] : "NEOVĚŘENO";
 
   return [
-    `🧠 MOZEK NAŠEL NOVÝ PROJEKT`,
+    `🧠 BRAIN ENGINE NAŠEL NOVÝ PROJEKT`,
     ``,
     `🚀 ${escapeMarkdown(idea.title)}`,
     ``,
@@ -20,7 +20,7 @@ export function formatTelegramMessage(idea: Idea, webUrl: string): string {
     ``,
     `💰 MVP: ${idea.mvp_cost_czk ?? "?"} Kč`,
     `⏱ Čas: ${idea.time_to_mvp ?? "?"}`,
-    `🔥 MOZEK SCORE: ${idea.mozek_score ?? "?"}/100`,
+    `🔥 BRAIN ENGINE SCORE: ${idea.mozek_score ?? "?"}/100`,
     `⚠️ Hlavní riziko: ${risk}`,
     ``,
     `👉 ${webUrl}/napad/${idea.id}`,
@@ -84,7 +84,7 @@ export async function sendProviderFallbackAlert(params: {
   reason: string;
 }): Promise<boolean> {
   const text = [
-    `⚠️ MOZEK: přepnuto na záložní model`,
+    `⚠️ BRAIN ENGINE: přepnuto na záložní model`,
     ``,
     `${params.primaryProvider} selhal, tenhle běh proběhl přes ${params.fallbackProvider}.`,
     ``,

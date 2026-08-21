@@ -117,7 +117,7 @@ export function FilterBar({ categories, regions, userCategories, current, action
         <label className="flex flex-col gap-1 text-xs text-mozek-muted">
           Řadit podle
           <select name="sort" defaultValue={current.sort ?? "mozek_score"} className="input">
-            <option value="mozek_score">MOZEK SCORE</option>
+            <option value="mozek_score">BRAIN ENGINE SCORE</option>
             <option value="created_at">Data přidání</option>
             <option value="difficulty_score">Obtížnosti</option>
             <option value="mvp_cost_czk">MVP nákladů</option>
