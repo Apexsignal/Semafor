@@ -148,3 +148,20 @@ create policy "public read agent_runs" on agent_runs
 
 -- No insert/update/delete policies are defined for anon/authenticated roles,
 -- so all writes must go through the Supabase service-role key (server-side only).
+
+-- ============================================================
+-- waitlist_signups — early-access email capture on the landing page.
+-- Paid access (subscription) isn't built yet; this collects interest in
+-- the meantime. Written only via the service-role key (app/api/waitlist).
+-- ============================================================
+create table if not exists waitlist_signups (
+  id uuid primary key default gen_random_uuid(),
+  email text not null unique,
+  created_at timestamptz default now()
+);
+
+create index if not exists waitlist_signups_created_at_idx on waitlist_signups (created_at desc);
+
+alter table waitlist_signups enable row level security;
+-- No select/insert policies for anon/authenticated — only the service-role
+-- key (server-side, app/api/waitlist/route.ts) can read or write this table.

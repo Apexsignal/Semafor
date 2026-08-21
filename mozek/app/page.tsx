@@ -4,6 +4,7 @@ import { queryIdeas } from "@/lib/queryIdeas";
 import { StatsBar } from "@/components/StatsBar";
 import { IdeaCard } from "@/components/IdeaCard";
 import { CategoryChart, PriorityChart } from "@/components/AggregateBarChart";
+import { WaitlistForm } from "@/components/WaitlistForm";
 import { formatDate } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
@@ -21,11 +22,57 @@ export default async function DashboardPage() {
 
   return (
     <div className="flex flex-col gap-8">
-      <section className="flex flex-col gap-2">
-        <h1 className="text-2xl font-bold">BRAIN ENGINE — AI Innovation Engine</h1>
-        <p className="text-sm text-mozek-muted">
-          Autonomní agent, který denně prochází zahraniční trendy a mění je v konkrétní podnikatelské příležitosti pro Evropu.
-        </p>
+      <section className="flex flex-col gap-6 rounded-2xl border border-mozek-border bg-gradient-to-b from-mozek-panel to-mozek-bg p-6 sm:p-8">
+        <div className="flex flex-col gap-3">
+          <span className="badge w-fit bg-mozek-accent/15 text-mozek-accent">Připravujeme placený přístup</span>
+          <h1 className="max-w-3xl text-3xl font-bold leading-tight sm:text-4xl">
+            AI, co každý den najde a rozpracuje nový byznys nápad pro Evropu.
+          </h1>
+          <p className="max-w-2xl text-sm text-mozek-muted sm:text-base">
+            Brain Engine denně prochází zahraniční trendy — Product Hunt, Reddit,
+            startup zprávy — a z nich staví promyšlené, ohodnocené podnikatelské
+            příležitosti: s monetizací, cenou za zakázku i odhadem rizik. Ne kopie
+            cizích nápadů. Rozpracované koncepty, co jde reálně postavit.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <div className="flex items-start gap-2 text-sm">
+            <span>🔍</span>
+            <span className="text-mozek-muted">
+              <b className="text-mozek-text">Denně hledá</b> — web search přes
+              zahraniční zdroje, ne z paměti
+            </span>
+          </div>
+          <div className="flex items-start gap-2 text-sm">
+            <span>🧠</span>
+            <span className="text-mozek-muted">
+              <b className="text-mozek-text">Sám si to kontroluje</b> — druhý,
+              kritický průchod před uložením
+            </span>
+          </div>
+          <div className="flex items-start gap-2 text-sm">
+            <span>📊</span>
+            <span className="text-mozek-muted">
+              <b className="text-mozek-text">Skóruje a rozpracuje</b> — 9 dílčích
+              skóre, scénáře příjmů, cena za zakázku
+            </span>
+          </div>
+        </div>
+
+        <div className="flex flex-col gap-4 rounded-xl border border-mozek-border bg-mozek-bg/60 p-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <div className="flex items-baseline gap-2">
+              <span className="text-2xl font-bold tabular-nums">4 900 Kč</span>
+              <span className="text-sm text-mozek-muted">/ měsíc, kdykoliv zrušitelné</span>
+            </div>
+            <p className="mt-1 text-xs text-mozek-muted">
+              Plný přístup ke všem nápadům. Konkrétní nápad si navíc můžeš
+              natrvalo zablokovat za 2 000 Kč.
+            </p>
+          </div>
+          <WaitlistForm />
+        </div>
       </section>
 
       <section className="card overflow-hidden border-mozek-good/30">
