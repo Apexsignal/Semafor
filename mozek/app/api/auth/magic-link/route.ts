@@ -27,6 +27,12 @@ export async function POST(request: Request) {
   });
 
   if (error) {
+    if (error.status === 429) {
+      return NextResponse.json(
+        { error: "Příliš mnoho pokusů, zkus to prosím za pár minut znovu." },
+        { status: 429 }
+      );
+    }
     return NextResponse.json({ error: "Něco se pokazilo, zkus to prosím znovu." }, { status: 500 });
   }
 
