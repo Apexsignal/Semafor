@@ -11,6 +11,18 @@ import type { Idea } from "./types";
 // the `ws` package works on every runtime, sidestepping the whole check.
 const REALTIME_TRANSPORT = { realtime: { transport: WebSocket as unknown as typeof globalThis.WebSocket } };
 
+// supabase-js's internal fetch goes through Next.js's patched global
+// fetch(), which Netlify's Next.js Runtime can still serve out of its
+// persistent Data Cache even on a `dynamic = "force-dynamic"` route —
+// found the hard way: the dashboard kept rendering a stale idea count
+// straight into the initial HTML, with no CDN/edge caching involved
+// (fresh `age: 0` on every request). Forcing `cache: "no-store"` on every
+// Supabase REST call opts each fetch out of that cache individually.
+const NO_STORE_FETCH = {
+  fetch: (input: RequestInfo | URL, init?: RequestInit) =>
+    fetch(input, { ...init, cache: "no-store" as RequestCache }),
+};
+
 export type Database = {
   public: {
     Tables: {
@@ -37,6 +49,7 @@ export function getSupabaseAnonClient(): SupabaseClient {
     browserClient = createClient(url, anonKey, {
       auth: { persistSession: false },
       ...REALTIME_TRANSPORT,
+      global: NO_STORE_FETCH,
     });
   }
   return browserClient;
@@ -61,5 +74,6 @@ export function getSupabaseServiceClient(): SupabaseClient {
   return createClient(url, serviceKey, {
     auth: { persistSession: false, autoRefreshToken: false },
     ...REALTIME_TRANSPORT,
+    global: NO_STORE_FETCH,
   });
 }
