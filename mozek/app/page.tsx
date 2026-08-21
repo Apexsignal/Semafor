@@ -75,6 +75,46 @@ export default async function DashboardPage() {
         </div>
       </section>
 
+      <section className="card overflow-hidden">
+        <div className="border-b border-mozek-border px-4 py-4 sm:px-5">
+          <span className="badge bg-mozek-warn/15 text-mozek-warn">Námitka, kterou známe</span>
+          <h2 className="mt-2 text-xl font-bold leading-snug sm:text-2xl">
+            „To si napíšu do ChatGPT sám.“ Jasně. A co dál?
+          </h2>
+          <p className="mt-1 max-w-2xl text-sm text-mozek-muted">
+            Nápad umí napsat kdokoliv. Neprodáváme nápad — prodáváme systém,
+            co ho denně najde, ověří a zamkne jen pro tebe.
+          </p>
+        </div>
+        <div className="divide-y divide-mozek-border">
+          {[
+            { label: "Zdroj", them: "Paměť modelu — může být zastaralá", us: "Živý web search, dnes" },
+            { label: "Kdo to má taky", them: "Kdokoliv s podobným promptem", us: "Jen ty — rezervace to stáhne z nabídky" },
+            { label: "Zítra", them: "Nic si nepamatuje, píšeš znovu", us: "Běží samo, každý den" },
+            { label: "Kontrola", them: "Věříš, co napíše", us: "Druhý, kritický průchod, než se uloží" },
+            { label: "Co dostaneš", them: "Jednu větu", us: "Skóre, cenu zakázky, plán prvních zákazníků" },
+          ].map((row) => (
+            <div
+              key={row.label}
+              className="grid grid-cols-2 gap-x-3 gap-y-1 px-4 py-3 sm:grid-cols-[150px_1fr_1fr] sm:items-center sm:gap-x-4 sm:px-5"
+            >
+              <span className="col-span-2 text-xs font-semibold uppercase tracking-wide text-mozek-muted sm:col-span-1">
+                {row.label}
+              </span>
+              <span className="text-sm text-mozek-muted">
+                <span className="text-mozek-bad">✕</span> {row.them}
+              </span>
+              <span className="text-sm font-medium text-mozek-text">
+                <span className="text-mozek-good">✓</span> {row.us}
+              </span>
+            </div>
+          ))}
+        </div>
+        <p className="border-t border-mozek-border bg-mozek-accent/5 px-4 py-3 text-sm font-semibold sm:px-5">
+          Neplatíš za nápad. Platíš za to, že ho nemá nikdo jiný.
+        </p>
+      </section>
+
       <section className="card overflow-hidden border-mozek-good/30">
         <div className="flex items-center justify-between border-b border-mozek-border bg-mozek-good/5 px-4 py-3">
           <h2 className="flex items-center gap-2 font-semibold">
