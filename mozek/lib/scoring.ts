@@ -29,7 +29,7 @@ export const SUB_SCORE_FIELDS = [
 
 export const STRONG_IDEA_THRESHOLD = 70;
 
-/** Sum the 9 sub-scores into the 0-100 MOZEK SCORE. */
+/** Sum the 9 sub-scores into the 0-100 BRAIN ENGINE SCORE. */
 export function computeMozekScore(scores: SubScores): number {
   const sum = SUB_SCORE_FIELDS.reduce((total, field) => {
     const value = scores[field];
@@ -38,7 +38,7 @@ export function computeMozekScore(scores: SubScores): number {
   return Math.max(0, Math.min(100, Math.round(sum)));
 }
 
-/** Map a 0-100 MOZEK SCORE to its priority bucket. */
+/** Map a 0-100 BRAIN ENGINE SCORE to its priority bucket. */
 export function computePriority(mozekScore: number): Priority {
   if (mozekScore >= 85) return "IMMEDIATE";
   if (mozekScore >= 70) return "HIGH_POTENTIAL";

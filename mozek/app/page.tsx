@@ -15,14 +15,14 @@ export default async function DashboardPage() {
     queryIdeas({ sortField: "mozek_score", sortDir: "desc", limit: 24 }),
   ]);
 
-  // Don't repeat ideas already shown in the MOZEK DAILY box right above.
+  // Don't repeat ideas already shown in the BRAIN ENGINE DAILY box right above.
   const dailyIds = new Set(daily.ideas.map((idea) => idea.id));
   const recent = recentRaw.filter((idea) => !dailyIds.has(idea.id));
 
   return (
     <div className="flex flex-col gap-8">
       <section className="flex flex-col gap-2">
-        <h1 className="text-2xl font-bold">🧠 MOZEK — AI Innovation Engine</h1>
+        <h1 className="text-2xl font-bold">BRAIN ENGINE — AI Innovation Engine</h1>
         <p className="text-sm text-mozek-muted">
           Autonomní agent, který denně prochází zahraniční trendy a mění je v konkrétní podnikatelské příležitosti pro Evropu.
         </p>
@@ -76,7 +76,7 @@ export default async function DashboardPage() {
       <section className="card overflow-hidden">
         <div className="flex items-center justify-between border-b border-mozek-border bg-mozek-accent/5 px-4 py-3">
           <h2 className="flex items-center gap-2 font-semibold">
-            <span>📅</span> MOZEK DAILY
+            <span>📅</span> BRAIN ENGINE DAILY
             <span className="text-sm font-normal text-mozek-muted">
               {daily.date ? formatDate(daily.date) : "zatím nic vygenerováno"}
             </span>

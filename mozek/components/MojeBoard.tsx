@@ -138,7 +138,7 @@ export function MojeBoard({ activeIdeas, archivedIdeas }: { activeIdeas: Idea[];
 
         <div className="flex flex-wrap items-center gap-2 text-xs">
           <select className="input" value={sortField} onChange={(e) => setSortField(e.target.value as SortField)}>
-            <option value="mozek_score">MOZEK SCORE</option>
+            <option value="mozek_score">BRAIN ENGINE SCORE</option>
             <option value="created_at">Datum přidání</option>
             <option value="difficulty_score">Obtížnost</option>
             <option value="mvp_cost_czk">MVP náklady</option>
