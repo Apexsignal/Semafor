@@ -1,3 +1,4 @@
+import Anthropic from "@anthropic-ai/sdk";
 import {
   ApiError,
   GoogleGenAI,
@@ -8,6 +9,7 @@ import {
   type Part,
 } from "@google/genai";
 import type { AgentIdeaDraft } from "./types";
+import { sendProviderFallbackAlert } from "./telegram";
 
 export const MOZEK_SYSTEM_PROMPT = `Jsi MOZEK — autonomní AI inovační agent. Nejsi chatbot čekající na otázku
 a nejsi ani jen "trend-spotter", co opisuje, co dělají firmy v zahraničí.
@@ -176,19 +178,26 @@ NE na vymyšlenou hodnotu):
   "sources_checked": string[]
 }`;
 
+// Claude Sonnet 5 is the primary provider — paid, so no free-tier daily
+// quota to work around, giving it a much bigger search budget than Gemini.
+const CLAUDE_DEFAULT_MODEL = "claude-sonnet-5";
+const CLAUDE_DEFAULT_MAX_WEB_SEARCHES = 15;
+
+// Gemini is the backup provider, used automatically if Claude fails (out of
+// credit, bad key, outage) or if ANTHROPIC_API_KEY isn't configured at all.
 // Free tier, no credit card required (key from https://aistudio.google.com).
 // Google renames/retires Gemini models fairly often — gemini-2.5-flash was
 // replaced by gemini-3.6-flash shortly before this was written. Override via
 // GEMINI_MODEL without a code change if it happens again; check
 // https://aistudio.google.com/rate-limit for the current free-tier lineup.
-const DEFAULT_MODEL = "gemini-3.6-flash";
-const DEFAULT_MAX_TOKENS = 16000;
+const GEMINI_DEFAULT_MODEL = "gemini-3.6-flash";
 // Free tier also caps this model at 20 requests/DAY (not just per-minute).
 // Each search round costs one Gemini call, plus one more for the final
-// answer — so this bounds a single run to ~5 Gemini calls, letting the
-// 2x/day cron schedule fit comfortably inside the daily budget with room
-// to spare for manual runs/testing. Revisit once on a paid model (Claude).
-const DEFAULT_MAX_WEB_SEARCHES = 4;
+// answer — so this bounds a single run to ~5 Gemini calls, small enough
+// that even an all-day string of Claude fallbacks stays inside budget.
+const GEMINI_DEFAULT_MAX_WEB_SEARCHES = 4;
+
+const DEFAULT_MAX_TOKENS = 16000;
 
 export interface RunAgentOptions {
   existingIdeas: Array<{ title: string; one_liner: string }>;
@@ -202,6 +211,7 @@ export interface RunAgentResult {
   ideas: AgentIdeaDraft[];
   model: string;
   rawText: string;
+  provider: "claude" | "gemini";
 }
 
 function buildUserPrompt(options: RunAgentOptions): string {
@@ -243,25 +253,43 @@ function extractJsonArray(text: string): unknown {
   return JSON.parse(trimmed.slice(start, end + 1));
 }
 
-// Gemini's own Google Search grounding tool requires a billing-enabled
-// Google Cloud project even for its nominally-free monthly quota (confirmed
-// live: it 429s with RESOURCE_EXHAUSTED on a plain free-tier API key, while
-// text generation and custom function calling work fine for free). So web
-// search is implemented as a normal function-calling tool backed by Tavily
-// (https://tavily.com), which has a genuinely free, no-card tier.
+// Neither provider's own built-in web search is usable here: Gemini's
+// Google Search grounding requires a billing-enabled Google Cloud project
+// even for its nominally-free quota (confirmed live: 429 RESOURCE_EXHAUSTED
+// on a plain free-tier key), and Claude's server-side web_search tool works
+// but Tavily is already wired up and shared code is simpler than two
+// separate search backends. So both providers get the same custom
+// function-calling tool backed by Tavily (https://tavily.com), which has a
+// genuinely free, no-card tier.
 const WEB_SEARCH_FUNCTION_NAME = "web_search";
+const WEB_SEARCH_DESCRIPTION =
+  "Search the live web for current information — news, product pages, " +
+  "forum threads, reviews. Use this whenever you need real, up-to-date " +
+  "facts instead of relying on memory.";
 
-const webSearchDeclaration: FunctionDeclaration = {
+const geminiWebSearchDeclaration: FunctionDeclaration = {
   name: WEB_SEARCH_FUNCTION_NAME,
-  description:
-    "Search the live web for current information — news, product pages, " +
-    "forum threads, reviews. Use this whenever you need real, up-to-date " +
-    "facts instead of relying on memory.",
+  description: WEB_SEARCH_DESCRIPTION,
   parameters: {
     type: Type.OBJECT,
     properties: {
       query: {
         type: Type.STRING,
+        description: "The search query (English usually finds more, but Czech is fine too).",
+      },
+    },
+    required: ["query"],
+  },
+};
+
+const claudeWebSearchTool: Anthropic.Tool = {
+  name: WEB_SEARCH_FUNCTION_NAME,
+  description: WEB_SEARCH_DESCRIPTION,
+  input_schema: {
+    type: "object",
+    properties: {
+      query: {
+        type: "string",
         description: "The search query (English usually finds more, but Czech is fine too).",
       },
     },
@@ -342,7 +370,7 @@ async function generateContentThrottled(
   }
 }
 
-export async function runMozekAgent(options: RunAgentOptions): Promise<RunAgentResult> {
+async function runWithGemini(options: RunAgentOptions): Promise<RunAgentResult> {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
     throw new Error("Missing GEMINI_API_KEY env var.");
@@ -352,9 +380,9 @@ export async function runMozekAgent(options: RunAgentOptions): Promise<RunAgentR
     throw new Error("Missing TAVILY_API_KEY env var.");
   }
 
-  const model = options.model ?? process.env.GEMINI_MODEL ?? DEFAULT_MODEL;
+  const model = options.model ?? process.env.GEMINI_MODEL ?? GEMINI_DEFAULT_MODEL;
   const maxTokens = options.maxTokens ?? DEFAULT_MAX_TOKENS;
-  const maxWebSearches = options.maxWebSearches ?? DEFAULT_MAX_WEB_SEARCHES;
+  const maxWebSearches = options.maxWebSearches ?? GEMINI_DEFAULT_MAX_WEB_SEARCHES;
 
   const client = new GoogleGenAI({ apiKey });
 
@@ -372,7 +400,7 @@ export async function runMozekAgent(options: RunAgentOptions): Promise<RunAgentR
       contents,
       config: {
         systemInstruction: MOZEK_SYSTEM_PROMPT,
-        tools: [{ functionDeclarations: [webSearchDeclaration] }],
+        tools: [{ functionDeclarations: [geminiWebSearchDeclaration] }],
         maxOutputTokens: maxTokens,
       },
     });
@@ -426,5 +454,121 @@ export async function runMozekAgent(options: RunAgentOptions): Promise<RunAgentR
     ideas: parsed as AgentIdeaDraft[],
     model,
     rawText,
+    provider: "gemini",
   };
+}
+
+async function runWithClaude(options: RunAgentOptions): Promise<RunAgentResult> {
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) {
+    throw new Error("Missing ANTHROPIC_API_KEY env var.");
+  }
+  const tavilyApiKey = process.env.TAVILY_API_KEY;
+  if (!tavilyApiKey) {
+    throw new Error("Missing TAVILY_API_KEY env var.");
+  }
+
+  const model = options.model ?? process.env.ANTHROPIC_MODEL ?? CLAUDE_DEFAULT_MODEL;
+  const maxTokens = options.maxTokens ?? DEFAULT_MAX_TOKENS;
+  const maxWebSearches = options.maxWebSearches ?? CLAUDE_DEFAULT_MAX_WEB_SEARCHES;
+
+  const client = new Anthropic({ apiKey });
+
+  const messages: Anthropic.MessageParam[] = [
+    { role: "user", content: buildUserPrompt(options) },
+  ];
+
+  let searchesUsed = 0;
+  let rawText = "";
+  const maxTurns = maxWebSearches + 5;
+
+  for (let turn = 0; turn < maxTurns; turn++) {
+    const response = await client.messages.create({
+      model,
+      max_tokens: maxTokens,
+      // The system prompt (~2-3k tokens) gets resent every turn of this
+      // loop — caching it keeps a multi-search run cheap.
+      system: [{ type: "text", text: MOZEK_SYSTEM_PROMPT, cache_control: { type: "ephemeral" } }],
+      tools: [claudeWebSearchTool],
+      messages,
+    });
+
+    if (response.stop_reason !== "tool_use") {
+      rawText = response.content
+        .filter((block): block is Anthropic.TextBlock => block.type === "text")
+        .map((block) => block.text)
+        .join("\n");
+      break;
+    }
+
+    messages.push({ role: "assistant", content: response.content });
+
+    const toolUseBlocks = response.content.filter(
+      (block): block is Anthropic.ToolUseBlock => block.type === "tool_use"
+    );
+
+    const toolResults: Anthropic.ToolResultBlockParam[] = [];
+    for (const block of toolUseBlocks) {
+      const input = block.input as { query?: unknown } | null;
+      const query = typeof input?.query === "string" ? input.query : "";
+      let content: string;
+      if (searchesUsed >= maxWebSearches) {
+        content = JSON.stringify({
+          error: "Search budget for this run is used up — proceed with what you already found.",
+        });
+      } else {
+        searchesUsed++;
+        try {
+          content = JSON.stringify({ results: await tavilySearch(tavilyApiKey, query) });
+        } catch (err) {
+          content = JSON.stringify({ error: err instanceof Error ? err.message : String(err) });
+        }
+      }
+      toolResults.push({ type: "tool_result", tool_use_id: block.id, content });
+    }
+    messages.push({ role: "user", content: toolResults });
+  }
+
+  if (!rawText) {
+    throw new Error(
+      `MOZEK agent did not produce a final answer within ${maxTurns} turns (search/turn budget exhausted).`
+    );
+  }
+
+  const parsed = extractJsonArray(rawText);
+  if (!Array.isArray(parsed)) {
+    throw new Error("Parsed model response was not a JSON array.");
+  }
+
+  return {
+    ideas: parsed as AgentIdeaDraft[],
+    model,
+    rawText,
+    provider: "claude",
+  };
+}
+
+/**
+ * Claude is the primary provider; Gemini is the automatic backup. If
+ * ANTHROPIC_API_KEY isn't set at all, Claude is skipped silently (not
+ * configured yet, nothing to alert about). If it IS set but the call fails
+ * for any reason (credit ran out, bad key, outage), fall back to Gemini and
+ * send a Telegram alert so a human knows to check Claude's billing —
+ * otherwise the degradation would be invisible.
+ */
+export async function runMozekAgent(options: RunAgentOptions): Promise<RunAgentResult> {
+  if (process.env.ANTHROPIC_API_KEY) {
+    try {
+      return await runWithClaude(options);
+    } catch (err) {
+      const reason = err instanceof Error ? err.message : String(err);
+      console.error("[agent] Claude failed, falling back to Gemini:", reason);
+      await sendProviderFallbackAlert({
+        primaryProvider: "Claude",
+        fallbackProvider: "Gemini",
+        reason: reason.slice(0, 300),
+      });
+    }
+  }
+  return runWithGemini(options);
 }

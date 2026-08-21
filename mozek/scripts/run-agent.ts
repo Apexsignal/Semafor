@@ -56,12 +56,12 @@ async function main() {
     console.log(
       `[run-agent] Calling MOZEK agent with ${existing?.length ?? 0} existing ideas for dedup context...`
     );
-    const { ideas: drafts, model } = await runMozekAgent({
+    const { ideas: drafts, model, provider } = await runMozekAgent({
       existingIdeas: existing ?? [],
       rejectedFeedbackSummary,
     });
 
-    console.log(`[run-agent] Agent returned ${drafts.length} idea(s).`);
+    console.log(`[run-agent] Agent returned ${drafts.length} idea(s) via ${provider} (${model}).`);
 
     const rowsToInsert = drafts.map((draft) => buildInsertRow(draft));
 

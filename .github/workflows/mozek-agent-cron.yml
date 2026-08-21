@@ -5,7 +5,9 @@ name: MOZEK agent run
 # 4x/day: Gemini's free tier caps gemini-3.6-flash at 20 requests/day
 # (separate from its per-minute limit), and a single run's tool-call
 # loop can itself use ~10-25 of those, so 4 runs/day risked exhausting
-# the quota partway through the day.
+# the quota partway through the day. (Claude, the primary provider, has
+# no such daily cap — this limit only matters when it's fallen back to
+# Gemini.)
 on:
   schedule:
     - cron: "0 6 * * *"   # 06:00 UTC
@@ -34,6 +36,8 @@ jobs:
 
       - name: Run MOZEK agent
         env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          ANTHROPIC_MODEL: ${{ vars.ANTHROPIC_MODEL }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           GEMINI_MODEL: ${{ vars.GEMINI_MODEL }}
           TAVILY_API_KEY: ${{ secrets.TAVILY_API_KEY }}
