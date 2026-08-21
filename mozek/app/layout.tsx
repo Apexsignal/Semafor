@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Playfair_Display } from "next/font/google";
 import { getSupabaseAuthClient } from "@/lib/supabase";
+import { MobileNav } from "@/components/MobileNav";
 import "./globals.css";
 
 // Elegant wordmark for the header logo only — everything else on the site
@@ -24,7 +25,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     <html lang="cs">
       <body className="min-h-screen bg-mozek-bg text-mozek-text antialiased">
         <header className="sticky top-0 z-40 border-b border-mozek-border bg-mozek-bg/90 backdrop-blur">
-          <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-3 sm:px-6">
+          <div className="relative mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-3 sm:px-6">
             <Link href="/" className="flex items-center gap-1.5 tracking-tight">
               <span className="text-2xl leading-none">🧠</span>
               <span className={`${logoFont.className} text-2xl leading-none text-mozek-accent`}>Brain</span>
@@ -32,32 +33,27 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                 AI Innovation Engine
               </span>
             </Link>
-            <nav className="flex min-w-0 items-center gap-1 overflow-x-auto text-sm">
-              <Link href="/" className="btn shrink-0 whitespace-nowrap">Dashboard</Link>
-              <Link href="/filtr" className="btn shrink-0 whitespace-nowrap">Filtr</Link>
-              <Link href="/moje" className="btn shrink-0 whitespace-nowrap">
-                <span className="sm:hidden">Moje</span>
-                <span className="hidden sm:inline">Moje nápady</span>
-              </Link>
+            <nav className="hidden items-center gap-1 text-sm sm:flex">
+              <Link href="/" className="btn whitespace-nowrap">Dashboard</Link>
+              <Link href="/filtr" className="btn whitespace-nowrap">Filtr</Link>
+              <Link href="/moje" className="btn whitespace-nowrap">Moje nápady</Link>
               {user ? (
-                <div className="flex shrink-0 items-center gap-2">
+                <div className="flex items-center gap-2">
                   <span
-                    className="hidden max-w-[160px] truncate text-xs text-mozek-muted sm:inline"
+                    className="max-w-[160px] truncate text-xs text-mozek-muted"
                     title={user.email ?? undefined}
                   >
                     {user.email}
                   </span>
                   <form action="/api/auth/logout" method="POST">
-                    <button type="submit" className="btn shrink-0 whitespace-nowrap">Odhlásit</button>
+                    <button type="submit" className="btn whitespace-nowrap">Odhlásit</button>
                   </form>
                 </div>
               ) : (
-                <Link href="/prihlaseni" className="btn shrink-0 whitespace-nowrap">
-                  <span className="sm:hidden">Účet</span>
-                  <span className="hidden sm:inline">Přihlásit se</span>
-                </Link>
+                <Link href="/prihlaseni" className="btn whitespace-nowrap">Přihlásit se</Link>
               )}
             </nav>
+            <MobileNav userEmail={user?.email ?? null} />
           </div>
         </header>
         <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6">{children}</main>
