@@ -41,20 +41,20 @@ export function LoginForm() {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col gap-2 sm:flex-row sm:items-start">
-      <div className="flex-1">
+    <form onSubmit={handleSubmit} className="flex flex-col gap-2">
+      <div>
         <input
           type="email"
           required
           placeholder="tvuj@email.cz"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          className="input w-full sm:min-w-[240px]"
+          className="input w-full"
           disabled={status === "loading"}
         />
         {status === "error" && <p className="mt-1 text-xs text-mozek-bad">{errorMsg}</p>}
       </div>
-      <button type="submit" className="btn shrink-0 whitespace-nowrap" disabled={status === "loading"}>
+      <button type="submit" className="btn w-full justify-center" disabled={status === "loading"}>
         {status === "loading" ? "Odesílám…" : "Poslat přihlašovací odkaz"}
       </button>
     </form>
