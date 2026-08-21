@@ -19,9 +19,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className="min-h-screen bg-mozek-bg text-mozek-text antialiased">
         <header className="sticky top-0 z-40 border-b border-mozek-border bg-mozek-bg/90 backdrop-blur">
           <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-3 sm:px-6">
-            <Link href="/" className="flex items-center gap-2 tracking-tight">
-              <span className="text-lg">🧠</span>
-              <span className={`${logoFont.className} text-2xl text-mozek-accent`}>Brain Engine</span>
+            <Link href="/" className="flex items-center gap-1.5 tracking-tight">
+              <span className="text-2xl leading-none">🧠</span>
+              <span className={`${logoFont.className} text-2xl leading-none text-mozek-accent`}>Brain</span>
               <span className="hidden text-sm font-normal text-mozek-muted sm:inline">
                 AI Innovation Engine
               </span>
