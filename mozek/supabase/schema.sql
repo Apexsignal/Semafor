@@ -165,3 +165,71 @@ create index if not exists waitlist_signups_created_at_idx on waitlist_signups (
 alter table waitlist_signups enable row level security;
 -- No select/insert policies for anon/authenticated — only the service-role
 -- key (server-side, app/api/waitlist/route.ts) can read or write this table.
+
+-- ============================================================
+-- subscriptions — proud A (přístup). Source of truth for "does this user
+-- currently have paid access to full idea detail". One row per Stripe
+-- subscription; written only by the future Stripe webhook handler
+-- (service-role key), read by the user themselves to show account state.
+-- ============================================================
+create table if not exists subscriptions (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  stripe_customer_id text,
+  stripe_subscription_id text unique,
+  status text not null default 'incomplete', -- incomplete / active / past_due / canceled
+  current_period_end timestamptz,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
+);
+
+create index if not exists subscriptions_user_id_idx on subscriptions (user_id);
+create index if not exists subscriptions_status_idx on subscriptions (status);
+
+drop trigger if exists subscriptions_updated_at on subscriptions;
+create trigger subscriptions_updated_at
+  before update on subscriptions
+  for each row
+  execute function ideas_set_updated_at();
+
+alter table subscriptions enable row level security;
+drop policy if exists "users read own subscription" on subscriptions;
+create policy "users read own subscription" on subscriptions
+  for select using (auth.uid() = user_id);
+-- No insert/update/delete policy for anon/authenticated — only the
+-- service-role key (Stripe webhook) writes this table.
+
+-- ============================================================
+-- purchases — one-off payments: proud B (rezervace nápadu) today, proud C
+-- (zakázka) later if it ever needs its own row instead of being handled
+-- entirely outside the system. Written only by the service-role key.
+-- ============================================================
+create table if not exists purchases (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  type text not null, -- reservation / build
+  idea_id uuid references ideas(id),
+  amount_czk int,
+  stripe_payment_intent_id text unique,
+  status text not null default 'pending', -- pending / paid / failed / refunded
+  created_at timestamptz default now()
+);
+
+create index if not exists purchases_user_id_idx on purchases (user_id);
+create index if not exists purchases_idea_id_idx on purchases (idea_id);
+
+alter table purchases enable row level security;
+drop policy if exists "users read own purchases" on purchases;
+create policy "users read own purchases" on purchases
+  for select using (auth.uid() = user_id);
+
+-- ============================================================
+-- ideas — reservation (proud B) + free-sample columns (prodejní strategie,
+-- viz plán část 02: pár nápadů zůstává natrvalo plně odemčených zdarma).
+-- ============================================================
+alter table ideas add column if not exists reserved_by_user_id uuid references auth.users(id);
+alter table ideas add column if not exists reserved_at timestamptz;
+alter table ideas add column if not exists is_free_sample boolean not null default false;
+
+create index if not exists ideas_reserved_by_user_id_idx on ideas (reserved_by_user_id);
+create index if not exists ideas_is_free_sample_idx on ideas (is_free_sample);
