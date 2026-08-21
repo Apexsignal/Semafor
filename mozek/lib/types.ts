@@ -116,6 +116,37 @@ export interface Idea {
   user_category: string | null;
   created_at: string;
   updated_at: string;
+
+  reserved_by_user_id: string | null;
+  reserved_at: string | null;
+  is_free_sample: boolean;
+}
+
+export type SubscriptionStatus = "incomplete" | "active" | "past_due" | "canceled";
+
+export interface Subscription {
+  id: string;
+  user_id: string;
+  stripe_customer_id: string | null;
+  stripe_subscription_id: string | null;
+  status: SubscriptionStatus;
+  current_period_end: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export type PurchaseType = "reservation" | "build";
+export type PurchaseStatus = "pending" | "paid" | "failed" | "refunded";
+
+export interface Purchase {
+  id: string;
+  user_id: string;
+  type: PurchaseType;
+  idea_id: string | null;
+  amount_czk: number | null;
+  stripe_payment_intent_id: string | null;
+  status: PurchaseStatus;
+  created_at: string;
 }
 
 // Fields the agent produces per idea, before scoring/priority are computed
@@ -133,6 +164,9 @@ export type AgentIdeaDraft = Omit<
   | "user_category"
   | "created_at"
   | "updated_at"
+  | "reserved_by_user_id"
+  | "reserved_at"
+  | "is_free_sample"
 >;
 
 export interface AgentRun {
