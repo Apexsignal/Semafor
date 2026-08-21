@@ -1,4 +1,6 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { createServerClient } from "@supabase/ssr";
+import { cookies } from "next/headers";
 import WebSocket from "ws";
 import type { Idea } from "./types";
 
@@ -75,5 +77,45 @@ export function getSupabaseServiceClient(): SupabaseClient {
     auth: { persistSession: false, autoRefreshToken: false },
     ...REALTIME_TRANSPORT,
     global: NO_STORE_FETCH,
+  });
+}
+
+/**
+ * Cookie-aware client for logged-in-user auth (magic link sign-in, session
+ * lookup, sign-out). Server Components / Route Handlers only — reads and
+ * writes the Supabase session cookies via `next/headers`. Per Supabase's
+ * own guidance, create a fresh client per request rather than reusing one.
+ *
+ * Server Components can't set cookies (Next.js restriction — only Route
+ * Handlers/Server Actions can), so `setAll` no-ops there; `middleware.ts`
+ * is what actually persists a refreshed session in that case.
+ */
+export function getSupabaseAuthClient(): SupabaseClient {
+  if (typeof window !== "undefined") {
+    throw new Error("getSupabaseAuthClient() must only be called on the server.");
+  }
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  if (!url || !anonKey) {
+    throw new Error(
+      "Missing NEXT_PUBLIC_SUPABASE_URL / NEXT_PUBLIC_SUPABASE_ANON_KEY env vars."
+    );
+  }
+  const cookieStore = cookies();
+  return createServerClient(url, anonKey, {
+    ...REALTIME_TRANSPORT,
+    global: NO_STORE_FETCH,
+    cookies: {
+      getAll() {
+        return cookieStore.getAll();
+      },
+      setAll(cookiesToSet) {
+        try {
+          cookiesToSet.forEach(({ name, value, options }) => cookieStore.set(name, value, options));
+        } catch {
+          // Called from a Server Component render — expected, ignore.
+        }
+      },
+    },
   });
 }

@@ -32,7 +32,7 @@ export default async function DashboardPage() {
             Brain Engine denně prochází zahraniční trendy — Product Hunt, Reddit,
             startup zprávy — a z nich staví promyšlené, ohodnocené podnikatelské
             příležitosti: s monetizací, cenou za zakázku i odhadem rizik. Ne kopie
-            cizích nápadů. Rozpracované koncepty, co jde reálně postavit.
+            cizích nápadů, ale rozpracované koncepty, co jde reálně postavit.
           </p>
         </div>
 

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Playfair_Display } from "next/font/google";
+import { getSupabaseAuthClient } from "@/lib/supabase";
 import "./globals.css";
 
 // Elegant wordmark for the header logo only — everything else on the site
@@ -13,7 +14,12 @@ export const metadata: Metadata = {
   description: "Autonomní AI agent, který denně hledá zahraniční trendy a mění je v podnikatelské příležitosti pro Evropu.",
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  const supabase = getSupabaseAuthClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
   return (
     <html lang="cs">
       <body className="min-h-screen bg-mozek-bg text-mozek-text antialiased">
@@ -33,6 +39,21 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 <span className="sm:hidden">Moje</span>
                 <span className="hidden sm:inline">Moje nápady</span>
               </Link>
+              {user ? (
+                <div className="flex items-center gap-2">
+                  <span
+                    className="hidden max-w-[160px] truncate text-xs text-mozek-muted sm:inline"
+                    title={user.email ?? undefined}
+                  >
+                    {user.email}
+                  </span>
+                  <form action="/api/auth/logout" method="POST">
+                    <button type="submit" className="btn whitespace-nowrap">Odhlásit</button>
+                  </form>
+                </div>
+              ) : (
+                <Link href="/prihlaseni" className="btn whitespace-nowrap">Přihlásit se</Link>
+              )}
             </nav>
           </div>
         </header>
