@@ -295,6 +295,39 @@ function extractJsonArray(text: string): unknown {
   return JSON.parse(trimmed.slice(start, end + 1));
 }
 
+// Both providers occasionally emit near-valid JSON that fails to parse —
+// seen live: an unescaped quote inside a text field breaks the string mid-
+// way through a multi-idea response. Rather than guess at every way an LLM
+// can mangle JSON syntax, hand the exact parser error back to the model and
+// ask it to resend — it can see precisely what it got wrong.
+const MAX_JSON_REPAIR_ATTEMPTS = 2;
+
+async function parseIdeasWithRepair(
+  initialRawText: string,
+  regenerate: (currentRawText: string, repairInstruction: string) => Promise<string>
+): Promise<{ parsed: unknown[]; rawText: string }> {
+  let rawText = initialRawText;
+  for (let attempt = 0; ; attempt++) {
+    try {
+      const parsed = extractJsonArray(rawText);
+      if (!Array.isArray(parsed)) {
+        throw new Error("Parsed model response was not a JSON array.");
+      }
+      return { parsed, rawText };
+    } catch (err) {
+      if (attempt >= MAX_JSON_REPAIR_ATTEMPTS) throw err;
+      const parseError = err instanceof Error ? err.message : String(err);
+      console.warn(
+        `[agent] Response wasn't valid JSON (${parseError}), asking the model to resend it fixed (attempt ${attempt + 1}/${MAX_JSON_REPAIR_ATTEMPTS})...`
+      );
+      rawText = await regenerate(
+        rawText,
+        `Tvoje předchozí odpověď nebyla platný JSON (chyba parseru: "${parseError}"). Vrať přesně stejný obsah znovu jako jedno kompletní, validní JSON pole — zkontroluj hlavně escapování uvozovek uvnitř textových hodnot (\\") a že je pole na konci správně uzavřené. Nic mimo JSON pole nepiš.`
+      );
+    }
+  }
+}
+
 // Neither provider's own built-in web search is usable here: Gemini's
 // Google Search grounding requires a billing-enabled Google Cloud project
 // even for its nominally-free quota (confirmed live: 429 RESOURCE_EXHAUSTED
@@ -487,15 +520,28 @@ async function runWithGemini(options: RunAgentOptions): Promise<RunAgentResult> 
     );
   }
 
-  const parsed = extractJsonArray(rawText);
-  if (!Array.isArray(parsed)) {
-    throw new Error("Parsed model response was not a JSON array.");
-  }
+  const { parsed, rawText: finalRawText } = await parseIdeasWithRepair(
+    rawText,
+    async (currentRawText, repairInstruction) => {
+      contents.push({ role: "model", parts: [{ text: currentRawText }] });
+      contents.push({ role: "user", parts: [{ text: repairInstruction }] });
+      const retryResponse = await generateContentThrottled(client, {
+        model,
+        contents,
+        config: {
+          systemInstruction: MOZEK_SYSTEM_PROMPT,
+          tools: [{ functionDeclarations: [geminiWebSearchDeclaration] }],
+          maxOutputTokens: maxTokens,
+        },
+      });
+      return retryResponse.text ?? "";
+    }
+  );
 
   return {
     ideas: parsed as AgentIdeaDraft[],
     model,
-    rawText,
+    rawText: finalRawText,
     provider: "gemini",
   };
 }
@@ -577,15 +623,29 @@ async function runWithClaude(options: RunAgentOptions): Promise<RunAgentResult> 
     );
   }
 
-  const parsed = extractJsonArray(rawText);
-  if (!Array.isArray(parsed)) {
-    throw new Error("Parsed model response was not a JSON array.");
-  }
+  const { parsed, rawText: finalRawText } = await parseIdeasWithRepair(
+    rawText,
+    async (currentRawText, repairInstruction) => {
+      messages.push({ role: "assistant", content: currentRawText });
+      messages.push({ role: "user", content: repairInstruction });
+      const retryResponse = await client.messages.create({
+        model,
+        max_tokens: maxTokens,
+        system: [{ type: "text", text: MOZEK_SYSTEM_PROMPT, cache_control: { type: "ephemeral" } }],
+        tools: [claudeWebSearchTool],
+        messages,
+      });
+      return retryResponse.content
+        .filter((block): block is Anthropic.TextBlock => block.type === "text")
+        .map((block) => block.text)
+        .join("\n");
+    }
+  );
 
   return {
     ideas: parsed as AgentIdeaDraft[],
     model,
-    rawText,
+    rawText: finalRawText,
     provider: "claude",
   };
 }
