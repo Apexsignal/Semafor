@@ -123,6 +123,20 @@ export async function queryIdeas(filters: IdeaFilters): Promise<Idea[]> {
   return rows;
 }
 
+/** The one permanently-unlocked idea used as a try-before-you-subscribe teaser, if any. */
+export async function getFreeSampleIdea(): Promise<Idea | null> {
+  const supabase = getSupabaseAnonClient();
+  const { data, error } = await supabase
+    .from("ideas")
+    .select("*")
+    .eq("is_free_sample", true)
+    .eq("is_archived", false)
+    .limit(1)
+    .maybeSingle();
+  if (error || !data) return null;
+  return data as Idea;
+}
+
 /** Distinct values for filter dropdowns, computed from the live (non-archived) dataset. */
 export async function getFilterOptions(): Promise<{
   categories: string[];
