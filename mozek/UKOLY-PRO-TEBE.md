@@ -27,3 +27,6 @@ Průběžně aktualizuju, jak se co vyřeší.
 
 - [x] IČO: 05010276
 - [x] Anthropic API klíč (jen čeká na kredit)
+- [x] Zamykání obsahu podle předplatného — nasazeno (první dvě sekce
+      volně, zbytek za "Předplatit"; LeaseGuard AI je natrvalo zdarma
+      jako ukázka)
