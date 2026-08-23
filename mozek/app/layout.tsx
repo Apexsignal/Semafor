@@ -57,8 +57,16 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           </div>
         </header>
         <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6">{children}</main>
-        <footer className="mx-auto max-w-7xl px-4 py-8 text-center text-xs text-mozek-muted sm:px-6">
-          BRAIN ENGINE běží autonomně na cronu — nové nápady se objevují bez zásahu.
+        <footer className="mx-auto flex max-w-7xl flex-col items-center gap-2 px-4 py-8 text-center text-xs text-mozek-muted sm:px-6">
+          <p>BRAIN ENGINE běží autonomně na cronu — nové nápady se objevují bez zásahu.</p>
+          <nav className="flex gap-4">
+            <Link href="/obchodni-podminky" className="hover:text-mozek-text hover:underline">
+              Obchodní podmínky
+            </Link>
+            <Link href="/ochrana-udaju" className="hover:text-mozek-text hover:underline">
+              Ochrana osobních údajů
+            </Link>
+          </nav>
         </footer>
       </body>
     </html>
