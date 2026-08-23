@@ -14,6 +14,7 @@ export function IdeaCard({ idea, layout = "grid" }: { idea: Idea; layout?: "grid
           <div className="flex items-center gap-2">
             <h3 className="truncate font-semibold">{idea.title}</h3>
             {idea.is_favorite && <span title="Oblíbené">⭐</span>}
+            {idea.is_free_sample && <span className="badge shrink-0 bg-mozek-good/15 text-mozek-good">Zdarma</span>}
           </div>
           <p className="truncate text-sm text-mozek-muted">{idea.one_liner}</p>
         </div>
@@ -33,7 +34,10 @@ export function IdeaCard({ idea, layout = "grid" }: { idea: Idea; layout?: "grid
       className="card flex flex-col gap-3 p-4 transition hover:border-mozek-accent hover:shadow-lg hover:shadow-mozek-accent/5"
     >
       <div className="flex items-start justify-between gap-2">
-        <PriorityBadge priority={idea.priority} />
+        <div className="flex flex-wrap items-center gap-1.5">
+          <PriorityBadge priority={idea.priority} />
+          {idea.is_free_sample && <span className="badge bg-mozek-good/15 text-mozek-good">Zdarma</span>}
+        </div>
         <span className={`text-xl font-bold tabular-nums ${scoreColor(idea.mozek_score)}`}>
           {idea.mozek_score ?? "—"}
           <span className="text-xs font-normal text-mozek-muted">/100</span>

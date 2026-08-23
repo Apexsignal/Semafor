@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { getDashboardStats, getTopOfLatestDay } from "@/lib/stats";
-import { queryIdeas } from "@/lib/queryIdeas";
+import { queryIdeas, getFreeSampleIdea } from "@/lib/queryIdeas";
 import { StatsBar } from "@/components/StatsBar";
 import { IdeaCard } from "@/components/IdeaCard";
 import { CategoryChart, PriorityChart } from "@/components/AggregateBarChart";
@@ -10,10 +10,11 @@ import { formatDate } from "@/lib/format";
 export const dynamic = "force-dynamic";
 
 export default async function DashboardPage() {
-  const [stats, daily, recentRaw] = await Promise.all([
+  const [stats, daily, recentRaw, freeSample] = await Promise.all([
     getDashboardStats(),
     getTopOfLatestDay(),
     queryIdeas({ sortField: "mozek_score", sortDir: "desc", limit: 24 }),
+    getFreeSampleIdea(),
   ]);
 
   // Don't repeat ideas already shown in the BRAIN ENGINE DAILY box right above.
@@ -70,6 +71,14 @@ export default async function DashboardPage() {
               Plný přístup ke všem nápadům. Konkrétní nápad si navíc můžeš
               natrvalo zablokovat za 2 000 Kč.
             </p>
+            {freeSample && (
+              <Link
+                href={`/napad/${freeSample.id}`}
+                className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-mozek-accent hover:underline"
+              >
+                🎁 Vyzkoušej zdarma na reálném nápadu — {freeSample.title} →
+              </Link>
+            )}
           </div>
           <WaitlistForm />
         </div>
