@@ -1,6 +1,8 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getSupabaseAnonClient } from "@/lib/supabase";
 import { getFilterOptions } from "@/lib/queryIdeas";
+import { hasFullAccess } from "@/lib/entitlements";
 import type { Idea } from "@/lib/types";
 import { PriorityBadge } from "@/components/ScoreBadge";
 import { FeedbackButtons } from "@/components/FeedbackButtons";
@@ -25,6 +27,7 @@ export default async function IdeaDetailPage({ params }: { params: { id: string 
   const europe = idea.europe_transfer;
   const revenue = idea.revenue_scenarios;
   const buildPrice = estimateBuildPrice(idea);
+  const unlocked = await hasFullAccess(idea);
 
   return (
     <div className="flex flex-col gap-5">
@@ -87,90 +90,139 @@ export default async function IdeaDetailPage({ params }: { params: { id: string 
           <Field label="Cílový zákazník" value={idea.target_customer} />
           <Field label="Důkaz poptávky" value={idea.demand_evidence} />
         </Section>
-
-        <Section title="Trh, konkurence & rizika" icon="⚔️" accent="warn">
-          <Field label="Konkurence" value={idea.competition} />
-          <Field label="Naše výhoda" value={idea.our_advantage} />
-          <BulletList label="Výhody" items={idea.pros} tone="good" />
-          <BulletList label="Nevýhody" items={idea.cons} tone="bad" />
-          <BulletList label="Hlavní rizika" items={idea.risks} tone="warn" />
-        </Section>
-
-        <Section title="Monetizace & scénáře příjmů" icon="💰" accent="good">
-          <Field label="Monetizační model" value={idea.monetization_model} />
-          <Field label="Odhad ceny" value={idea.price_estimate} />
-          {revenue && (
-            <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-              <RevenueCell label="Konzervativní" value={revenue.conservative} />
-              <RevenueCell label="Realistický" value={revenue.realistic} />
-              <RevenueCell label="Ambiciózní" value={revenue.ambitious} />
-            </div>
-          )}
-        </Section>
-
-        <Section title="Náklady & technická náročnost" icon="⚙️" accent="bad">
-          <ChipList label="Tech stack" items={idea.tech_stack} />
-          <Field label="Potřebný tým" value={idea.team_needed} />
-          <Field label="Proč tahle obtížnost" value={idea.difficulty_reasoning} />
-          <Field label="Proč tyhle náklady" value={idea.cost_reasoning} />
-        </Section>
-
-        <Section title="Jak to postavit a uspět" icon="🚀" accent="accent2">
-          {idea.build_steps && idea.build_steps.length > 0 && (
-            <div>
-              <div className="mb-2 text-xs font-medium uppercase tracking-wide text-mozek-muted">
-                Návod krok za krokem
-              </div>
-              <Steps items={idea.build_steps} />
-            </div>
-          )}
-          <Field label="Prvních 10 zákazníků" value={idea.first_10_customers} />
-          <Field label="Prvních 100 zákazníků" value={idea.first_100_customers} />
-          <ChipList label="Marketingové kanály" items={idea.marketing_channels} />
-          <Field label="Plán škálování" value={idea.scaling_plan} />
-        </Section>
-
-        {buildPrice && (
-          <Section title="Cena za zakázku" icon="🤝" accent="good">
-            <p className="text-xs text-mozek-muted">
-              Orientační cena, pokud by tenhle projekt stavěl na zakázku
-              freelancer nebo agentura místo DIY (odhad z náročnosti a
-              času do MVP, ne fakt — ověř proti reálným nabídkám).
-            </p>
-            <div className="grid grid-cols-2 gap-2">
-              <div className="rounded-lg border border-mozek-border p-2 text-center">
-                <div className="text-xs text-mozek-muted">Freelancer</div>
-                <div className="mt-1 text-lg font-bold">
-                  {buildPrice.freelancer_czk.toLocaleString("cs-CZ")} Kč
-                </div>
-              </div>
-              <div className="rounded-lg border border-mozek-border p-2 text-center">
-                <div className="text-xs text-mozek-muted">Agentura</div>
-                <div className="mt-1 text-lg font-bold">
-                  {buildPrice.agency_czk.toLocaleString("cs-CZ")} Kč
-                </div>
-              </div>
-            </div>
-          </Section>
-        )}
-
-        <Section title="Skóre (rozpad)" icon="📊" accent="accent">
-          <SubScoreBar label="Problém" value={idea.score_problem} />
-          <SubScoreBar label="Velikost trhu" value={idea.score_market_size} />
-          <SubScoreBar label="Monetizace" value={idea.score_monetization} />
-          <SubScoreBar label="Konkurence" value={idea.score_competition} />
-          <SubScoreBar label="Jednoduchost MVP" value={idea.score_mvp_simplicity} />
-          <SubScoreBar label="Rychlost" value={idea.score_speed} />
-          <SubScoreBar label="Trend" value={idea.score_trend} />
-          <SubScoreBar label="Škálovatelnost" value={idea.score_scalability} />
-          <SubScoreBar label="Potenciál pro Evropu" value={idea.score_europe_potential} />
-          <div className="mt-2 flex items-center justify-between border-t border-mozek-border pt-2 text-sm font-semibold">
-            <span>BRAIN ENGINE SCORE celkem</span>
-            <span className={scoreColor(idea.mozek_score)}>{idea.mozek_score ?? "—"}/100</span>
-          </div>
-          <BulletList label="Ověřené zdroje" items={idea.sources_checked} />
-        </Section>
       </div>
+
+      {unlocked ? (
+        <div className="columns-1 gap-5 lg:columns-2">
+          <Section title="Trh, konkurence & rizika" icon="⚔️" accent="warn">
+            <Field label="Konkurence" value={idea.competition} />
+            <Field label="Naše výhoda" value={idea.our_advantage} />
+            <BulletList label="Výhody" items={idea.pros} tone="good" />
+            <BulletList label="Nevýhody" items={idea.cons} tone="bad" />
+            <BulletList label="Hlavní rizika" items={idea.risks} tone="warn" />
+          </Section>
+
+          <Section title="Monetizace & scénáře příjmů" icon="💰" accent="good">
+            <Field label="Monetizační model" value={idea.monetization_model} />
+            <Field label="Odhad ceny" value={idea.price_estimate} />
+            {revenue && (
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                <RevenueCell label="Konzervativní" value={revenue.conservative} />
+                <RevenueCell label="Realistický" value={revenue.realistic} />
+                <RevenueCell label="Ambiciózní" value={revenue.ambitious} />
+              </div>
+            )}
+          </Section>
+
+          <Section title="Náklady & technická náročnost" icon="⚙️" accent="bad">
+            <ChipList label="Tech stack" items={idea.tech_stack} />
+            <Field label="Potřebný tým" value={idea.team_needed} />
+            <Field label="Proč tahle obtížnost" value={idea.difficulty_reasoning} />
+            <Field label="Proč tyhle náklady" value={idea.cost_reasoning} />
+          </Section>
+
+          <Section title="Jak to postavit a uspět" icon="🚀" accent="accent2">
+            {idea.build_steps && idea.build_steps.length > 0 && (
+              <div>
+                <div className="mb-2 text-xs font-medium uppercase tracking-wide text-mozek-muted">
+                  Návod krok za krokem
+                </div>
+                <Steps items={idea.build_steps} />
+              </div>
+            )}
+            <Field label="Prvních 10 zákazníků" value={idea.first_10_customers} />
+            <Field label="Prvních 100 zákazníků" value={idea.first_100_customers} />
+            <ChipList label="Marketingové kanály" items={idea.marketing_channels} />
+            <Field label="Plán škálování" value={idea.scaling_plan} />
+          </Section>
+
+          {buildPrice && (
+            <Section title="Cena za zakázku" icon="🤝" accent="good">
+              <p className="text-xs text-mozek-muted">
+                Orientační cena, pokud by tenhle projekt stavěl na zakázku
+                freelancer nebo agentura místo DIY (odhad z náročnosti a
+                času do MVP, ne fakt — ověř proti reálným nabídkám).
+              </p>
+              <div className="grid grid-cols-2 gap-2">
+                <div className="rounded-lg border border-mozek-border p-2 text-center">
+                  <div className="text-xs text-mozek-muted">Freelancer</div>
+                  <div className="mt-1 text-lg font-bold">
+                    {buildPrice.freelancer_czk.toLocaleString("cs-CZ")} Kč
+                  </div>
+                </div>
+                <div className="rounded-lg border border-mozek-border p-2 text-center">
+                  <div className="text-xs text-mozek-muted">Agentura</div>
+                  <div className="mt-1 text-lg font-bold">
+                    {buildPrice.agency_czk.toLocaleString("cs-CZ")} Kč
+                  </div>
+                </div>
+              </div>
+            </Section>
+          )}
+
+          <Section title="Skóre (rozpad)" icon="📊" accent="accent">
+            <SubScoreBar label="Problém" value={idea.score_problem} />
+            <SubScoreBar label="Velikost trhu" value={idea.score_market_size} />
+            <SubScoreBar label="Monetizace" value={idea.score_monetization} />
+            <SubScoreBar label="Konkurence" value={idea.score_competition} />
+            <SubScoreBar label="Jednoduchost MVP" value={idea.score_mvp_simplicity} />
+            <SubScoreBar label="Rychlost" value={idea.score_speed} />
+            <SubScoreBar label="Trend" value={idea.score_trend} />
+            <SubScoreBar label="Škálovatelnost" value={idea.score_scalability} />
+            <SubScoreBar label="Potenciál pro Evropu" value={idea.score_europe_potential} />
+            <div className="mt-2 flex items-center justify-between border-t border-mozek-border pt-2 text-sm font-semibold">
+              <span>BRAIN ENGINE SCORE celkem</span>
+              <span className={scoreColor(idea.mozek_score)}>{idea.mozek_score ?? "—"}/100</span>
+            </div>
+            <BulletList label="Ověřené zdroje" items={idea.sources_checked} />
+          </Section>
+        </div>
+      ) : (
+        <div className="relative">
+          <div aria-hidden="true" className="pointer-events-none select-none blur-sm">
+            <div className="columns-1 gap-5 lg:columns-2">
+              <Section title="Trh, konkurence & rizika" icon="⚔️" accent="warn">
+                <Field label="Konkurence" value={idea.competition} />
+                <BulletList label="Hlavní rizika" items={idea.risks} tone="warn" />
+              </Section>
+              <Section title="Monetizace & scénáře příjmů" icon="💰" accent="good">
+                <Field label="Monetizační model" value={idea.monetization_model} />
+                <Field label="Odhad ceny" value={idea.price_estimate} />
+              </Section>
+              <Section title="Náklady & technická náročnost" icon="⚙️" accent="bad">
+                <ChipList label="Tech stack" items={idea.tech_stack} />
+                <Field label="Potřebný tým" value={idea.team_needed} />
+              </Section>
+              <Section title="Jak to postavit a uspět" icon="🚀" accent="accent2">
+                <Field label="Prvních 10 zákazníků" value={idea.first_10_customers} />
+                <Field label="Plán škálování" value={idea.scaling_plan} />
+              </Section>
+              <Section title="Skóre (rozpad)" icon="📊" accent="accent">
+                <SubScoreBar label="Problém" value={idea.score_problem} />
+                <SubScoreBar label="Velikost trhu" value={idea.score_market_size} />
+                <SubScoreBar label="Monetizace" value={idea.score_monetization} />
+              </Section>
+            </div>
+          </div>
+          <div className="absolute inset-0 flex items-center justify-center rounded-2xl bg-mozek-bg/80 p-4 backdrop-blur-[2px]">
+            <div className="card flex max-w-sm flex-col items-center gap-3 p-6 text-center">
+              <span className="text-3xl">🔒</span>
+              <h3 className="text-lg font-semibold">Odemkni celou analýzu</h3>
+              <p className="text-sm text-mozek-muted">
+                Trh a konkurence, monetizace a scénáře příjmů, technická
+                náročnost, plán prvních zákazníků i rozpad skóre — vše
+                v předplatném.
+              </p>
+              <Link
+                href="/prihlaseni"
+                className="btn w-full justify-center border-mozek-accent bg-mozek-accent text-mozek-bg hover:text-mozek-bg"
+              >
+                Předplatit — 4 900 Kč/měsíc
+              </Link>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
