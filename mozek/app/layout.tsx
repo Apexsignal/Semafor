@@ -39,12 +39,13 @@ export default async function RootLayout({ children }: { children: React.ReactNo
               <Link href="/moje" className="btn whitespace-nowrap">Moje nápady</Link>
               {user ? (
                 <div className="flex items-center gap-2">
-                  <span
-                    className="max-w-[160px] truncate text-xs text-mozek-muted"
+                  <Link
+                    href="/ucet"
+                    className="max-w-[160px] truncate text-xs text-mozek-muted hover:text-mozek-accent hover:underline"
                     title={user.email ?? undefined}
                   >
                     {user.email}
-                  </span>
+                  </Link>
                   <form action="/api/auth/logout" method="POST">
                     <button type="submit" className="btn whitespace-nowrap">Odhlásit</button>
                   </form>

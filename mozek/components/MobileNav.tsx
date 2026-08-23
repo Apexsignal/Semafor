@@ -26,7 +26,9 @@ export function MobileNav({ userEmail }: { userEmail: string | null }) {
             <Link href="/moje" onClick={close} className="btn w-full justify-start">Moje nápady</Link>
             {userEmail ? (
               <>
-                <div className="px-3 py-1 text-xs text-mozek-muted">{userEmail}</div>
+                <Link href="/ucet" onClick={close} className="btn w-full justify-start">
+                  <span className="truncate">{userEmail}</span>
+                </Link>
                 <form action="/api/auth/logout" method="POST">
                   <button type="submit" className="btn w-full justify-start">Odhlásit</button>
                 </form>
