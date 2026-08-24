@@ -7,7 +7,8 @@
  *  2. Build a short summary of recently rejected feedback (section 7).
  *  3. Call the MOZEK agent (web search + Claude), which returns idea drafts.
  *  4. Score each idea, insert it (INSERT only — never update/delete existing rows).
- *  5. Telegram-notify for every newly inserted idea with flag_strong = true.
+ *  5. Telegram-notify for the single best newly inserted idea with
+ *     flag_strong = true (highest mozek_score of the run), if any.
  *  6. Log the whole run to agent_runs.
  */
 import { config as loadEnv } from "dotenv";
@@ -87,8 +88,11 @@ async function main() {
       `[run-agent] Inserted ${inserted.length} idea(s), ${strongIdeas.length} flagged strong (>=70).`
     );
 
-    for (const idea of strongIdeas) {
-      await sendTelegramNotification(idea);
+    // Only the single best idea of the run gets a Telegram ping — one
+    // glance, not a flood of messages every time several ideas clear 70.
+    const topIdea = [...strongIdeas].sort((a, b) => (b.mozek_score ?? 0) - (a.mozek_score ?? 0))[0];
+    if (topIdea) {
+      await sendTelegramNotification(topIdea);
     }
 
     const finishedAt = new Date();
