@@ -1,6 +1,7 @@
 import { getSupabaseAnonClient } from "./supabase";
 import { parseNaturalQuery } from "./naturalQuery";
 import { extractMaxDays, extractMaxNumber } from "./parseEstimates";
+import { CONTENT_GATE_ENABLED } from "./entitlements";
 import type { Idea, Priority } from "./types";
 
 export type SortField = "mozek_score" | "created_at" | "difficulty_score" | "mvp_cost_czk";
@@ -125,6 +126,8 @@ export async function queryIdeas(filters: IdeaFilters): Promise<Idea[]> {
 
 /** The one permanently-unlocked idea used as a try-before-you-subscribe teaser, if any. */
 export async function getFreeSampleIdea(): Promise<Idea | null> {
+  if (!CONTENT_GATE_ENABLED) return null;
+
   const supabase = getSupabaseAnonClient();
   const { data, error } = await supabase
     .from("ideas")
