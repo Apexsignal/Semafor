@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { Idea } from "@/lib/types";
 import { PriorityBadge } from "./ScoreBadge";
 import { scoreColor, formatDate } from "@/lib/format";
+import { CONTENT_GATE_ENABLED } from "@/lib/entitlements";
 
 export function IdeaCard({ idea, layout = "grid" }: { idea: Idea; layout?: "grid" | "list" }) {
   if (layout === "list") {
@@ -14,7 +15,9 @@ export function IdeaCard({ idea, layout = "grid" }: { idea: Idea; layout?: "grid
           <div className="flex items-center gap-2">
             <h3 className="truncate font-semibold">{idea.title}</h3>
             {idea.is_favorite && <span title="Oblíbené">⭐</span>}
-            {idea.is_free_sample && <span className="badge shrink-0 bg-mozek-good/15 text-mozek-good">Zdarma</span>}
+            {CONTENT_GATE_ENABLED && idea.is_free_sample && (
+              <span className="badge shrink-0 bg-mozek-good/15 text-mozek-good">Zdarma</span>
+            )}
           </div>
           <p className="truncate text-sm text-mozek-muted">{idea.one_liner}</p>
         </div>
@@ -36,7 +39,9 @@ export function IdeaCard({ idea, layout = "grid" }: { idea: Idea; layout?: "grid
       <div className="flex items-start justify-between gap-2">
         <div className="flex flex-wrap items-center gap-1.5">
           <PriorityBadge priority={idea.priority} />
-          {idea.is_free_sample && <span className="badge bg-mozek-good/15 text-mozek-good">Zdarma</span>}
+          {CONTENT_GATE_ENABLED && idea.is_free_sample && (
+            <span className="badge bg-mozek-good/15 text-mozek-good">Zdarma</span>
+          )}
         </div>
         <span className={`text-xl font-bold tabular-nums ${scoreColor(idea.mozek_score)}`}>
           {idea.mozek_score ?? "—"}
